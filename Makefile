@@ -1,11 +1,11 @@
 TARGET = golicuda
 
-CC = gcc
-CFLAGS = -Wall -Wextra -g
+CC = nvcc
+CFLAGS = -lGL -lGLEW -lglfw -Wno-deprecated-gpu-targets
 
-SRC = $(wildcard src/*.c)
-OBJ = $(patsubst src/%.c, obj/%.o, $(SRC))
-INCLUDE = $(wildcard include/*.c)
+SRC = $(wildcard src/*.cu)
+OBJ = $(patsubst src/%.cu, obj/%.o, $(SRC))
+INCLUDE = $(wildcard include/*.h)
 
 
 .PHONY: all clean
