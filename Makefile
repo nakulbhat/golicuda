@@ -1,6 +1,6 @@
 TARGET = golicuda
 NVCC = nvcc
-NVCC_FLAGS = -Xcompiler -fPIE -lGL -lGLEW -lglfw -Wno-deprecated-gpu-targets
+NVCC_FLAGS = -Xcompiler -fPIE -lGL -lGLEW -lglfw -Wno-deprecated-gpu-targets -arch=sm_86
 
 SRC = $(wildcard src/*.cu)
 OBJ = $(patsubst src/%.cu, obj/%.o, $(SRC))
