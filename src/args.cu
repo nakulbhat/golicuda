@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
@@ -6,20 +7,17 @@
 #include <unistd.h>
 
 #include "../include/args.h"
+#include "../include/help.h"
 #include "../include/main.h"
 #include "../include/rle.h"
 #include "../include/state.h"
-#include "bits/getopt_core.h"
 
-static struct option long_options[] = {{"verbose", no_argument, 0, 'v'},
-    {"size", required_argument, 0, 's'},
-    {"rowwise", no_argument, 0, 'r'},
-    {"colwise", no_argument, 0, 'c'},
-    {"element", no_argument, 0, 'e'},
-    {"fill", required_argument, 0, 'f'},
-    {"gens", required_argument, 0, 'n'},
-    {"rle", required_argument, 0, 'l'},
-    {0, 0, 0, 0}};
+static struct option long_options[] = {
+    {"verbose", no_argument, 0, 'v'},    {"size", required_argument, 0, 's'},
+    {"rowwise", no_argument, 0, 'r'},    {"colwise", no_argument, 0, 'c'},
+    {"element", no_argument, 0, 'e'},    {"fill", required_argument, 0, 'f'},
+    {"gens", required_argument, 0, 'n'}, {"rle", required_argument, 0, 'l'},
+    {"help", no_argument, 0, 'h'},       {0, 0, 0, 0}};
 
 static void parse_cell(Cell *cell, const char *format) {
     char *xend, *yend;
@@ -106,10 +104,14 @@ static void construct_fill_cell_arr(AppState *state, int optind, int argc,
 
 void parse_args(AppState *state, int argc, char **argv) {
     int opt;
-
-    while ((opt = getopt_long(argc, argv, "vs:rcef:n:l:", long_options, NULL)) !=
+    opterr = 0;
+    while ((opt = getopt_long(argc, argv, "hvs:rcef:n:l:", long_options, NULL)) !=
         -1) {
         switch (opt) {
+            case 'h':
+                emit_help(argv[0]);
+                exit(EXIT_SUCCESS);
+                break;
             case 'v':
                 state->flags |= VERBOSE_FLAG;
                 break;
@@ -149,7 +151,14 @@ void parse_args(AppState *state, int argc, char **argv) {
                 break;
 
             default:
-                fprintf(stderr, "Invalid option\n");
+            case '?':
+                if (optopt) {
+                    fprintf(stderr, "Unknown option: -%c\n", optopt);
+                } else {
+                    fprintf(stderr, "Unknown option: %s\n", argv[optind - 1]);
+                }
+
+                fprintf(stderr, "Try '%s --help' for usage.\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
@@ -165,6 +174,6 @@ void parse_args(AppState *state, int argc, char **argv) {
     }
 
     if (state->flags & RLE_FILE_FLAG) {
-    load_rle(state, state->rle_file);
+        load_rle(state, state->rle_file);
     }
 }
