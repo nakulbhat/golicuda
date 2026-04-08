@@ -1,8 +1,11 @@
 #pragma once
 
+#pragma once
+
 #include <stdint.h>
 #include <cuda_runtime.h>
 #include <stdio.h>
+#include "state.h"   
 
 void cuda_init_random(
     uint8_t *grid,
@@ -15,7 +18,8 @@ void cuda_game_of_life(
     const uint8_t *src,
     uint8_t *dst,
     int width,
-    int height);
+    int height,
+    const AppState *state);   
 
 void cuda_render(
     const uint8_t *grid,
@@ -23,6 +27,13 @@ void cuda_render(
     int width,
     int height);
 
+void cuda_fill_cells(
+    uint8_t *d_grid,
+    int width,
+    int height,
+    const Cell *cells,
+    int count
+);
 dim3 cuda_default_block();
 dim3 cuda_default_grid(int width, int height);
 

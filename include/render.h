@@ -35,8 +35,8 @@ typedef struct {
     int dragging;
 } GLContext;
 
-static void gl_init(GLContext *ctx, AppState *state);
-static void gl_update(GLContext *ctx);
+static void gl_init(GLContext *ctx, const AppState *state);
+static void gl_update(GLContext *ctx, const AppState *state);
 static void gl_render(GLContext *ctx);
 static void gl_cleanup(GLContext *ctx);
 
@@ -44,5 +44,5 @@ static void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 static void mouse_button_callback(GLFWwindow *window, int button, int action, int mods);
 static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos);
 
-void start_simulation(AppState *state);
+void start_simulation(const AppState *state);
 

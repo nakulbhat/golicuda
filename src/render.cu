@@ -83,7 +83,7 @@ static const char *fragmentShaderSource =
     "   FragColor = texture(tex, scaled);\n"
     "}";
 
-static void gl_init(GLContext *ctx, AppState *state) {
+static void gl_init(GLContext *ctx, const AppState *state) {
 
     ctx->width = state->grid.x;
     ctx->height = state->grid.y;
@@ -207,24 +207,8 @@ static void gl_init(GLContext *ctx, AppState *state) {
 
     cudaDeviceSynchronize();
 
-    if (state->fill_cell_arr && state->fill_cell_count > 0) {
-        // Copy current grid to host, patch it, copy back
-        size_t grid_bytes = ctx->width * ctx->height * sizeof(uint8_t);
-        uint8_t *h_grid = (uint8_t *)malloc(grid_bytes);
-
-        cudaMemcpy(h_grid, d_a, grid_bytes, cudaMemcpyDeviceToHost);
-
-        for (int i = 0; i < state->fill_cell_count; i++) {
-            Cell c = state->fill_cell_arr[i];
-            if (c.x < 0 || c.x >= ctx->width || c.y < 0 || c.y >= ctx->height)
-                continue;
-            h_grid[c.y * ctx->width + c.x] = 1;
-        }
-
-        cudaMemcpy(d_a, h_grid, grid_bytes, cudaMemcpyHostToDevice);
-        cudaDeviceSynchronize();
-        free(h_grid);
-    }
+    cuda_fill_cells(d_a, ctx->width, ctx->height, state->fill_cell_arr,
+                    state->fill_cell_count);
 
     ctx->d_front = d_a;
     ctx->d_back = d_b;
@@ -262,7 +246,7 @@ static void gl_cleanup(GLContext *ctx) {
     glfwTerminate();
 }
 
-static void gl_update(GLContext *ctx) {
+static void gl_update(GLContext *ctx, const AppState *state) {
 
     float4 *dptr;
     size_t num_bytes;
@@ -272,7 +256,7 @@ static void gl_update(GLContext *ctx) {
     cudaGraphicsResourceGetMappedPointer((void **)&dptr, &num_bytes,
                                          ctx->cuda_pbo);
 
-    cuda_game_of_life(ctx->d_front, ctx->d_back, ctx->width, ctx->height);
+    //cuda_game_of_life(ctx->d_front, ctx->d_back, ctx->width, ctx->height, state);
 
     cuda_render(ctx->d_back, dptr, ctx->width, ctx->height);
 
@@ -284,13 +268,13 @@ static void gl_update(GLContext *ctx) {
     ctx->d_back = tmp;
 }
 
-void start_simulation(AppState *state) {
+void start_simulation(const AppState *state) {
     GLContext ctx = {0};
 
     gl_init(&ctx, state);
 
     while (!glfwWindowShouldClose(ctx.window)) {
-        gl_update(&ctx);
+        gl_update(&ctx, state);
         gl_render(&ctx);
 
         glfwSwapBuffers(ctx.window);
