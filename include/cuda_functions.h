@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <cuda_runtime.h>
+#include <stdio.h>
 
 void cuda_init_random(
     uint8_t *grid,

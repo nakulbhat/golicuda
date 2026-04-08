@@ -1,11 +1,9 @@
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "../include/cuda_functions.h"
-#include "../include/render.h"
 
 __global__ void init_random_kernel(
     uint8_t *grid,

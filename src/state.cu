@@ -4,7 +4,7 @@
 void init_default_state(AppState *state) {
     state->grid = (Cell){100, 100};
     state->flags = 0;
-    state->random_fill_percentage = 0;
+    state->random_fill_percentage = 8;
     state->generations = 100;
     state->fill_cell_arr = NULL;
     state->fill_cell_count = 0;

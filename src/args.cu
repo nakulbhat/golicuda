@@ -29,7 +29,7 @@ static void parse_cell(Cell *cell, const char *format) {
     if (xend == format || *xend != ',' || yend == xend + 1 || *yend != '\0')
         FATAL("Invalid cell size format. Expected: X,Y (e.g. 10,20)");
 
-    if (x <= 0 || x > INT_MAX || y <= 0 || y > INT_MAX)
+    if (x < 0 || x > INT_MAX || y < 0 || y > INT_MAX)
         FATAL("Cell dimensions must be positive. Got X=%ld, Y=%ld", x, y);
 
     cell->x = x;
@@ -100,6 +100,8 @@ static void construct_fill_cell_arr(AppState *state, int optind, int argc, char 
     for (int i = 0; i < state->fill_cell_count; i++) {
         parse_cell(&state->fill_cell_arr[i], argv[i + optind]);
     }
+
+    LOG(state, "Found %d cells to be filled", state->fill_cell_count);
 }
 
 void parse_args(AppState *state, int argc, char **argv) {
