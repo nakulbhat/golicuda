@@ -4,126 +4,99 @@
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 
+#include <curand_kernel.h>
+
 #include <stdio.h>
 #include <math.h>
 
 #include "../include/main.h"
 #include "../include/state.h"
+#include "../include/render.h"
+#include "../include/cuda_functions.h"
 
-////////////////////////////////////////////////////////////////////////////////
-// GLOBAL CAMERA STATE
-////////////////////////////////////////////////////////////////////////////////
+static void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
+    GLContext *ctx = (GLContext *) glfwGetWindowUserPointer(window);
 
-float zoom = 8.0f;
-float offsetX = 0.0f;
-float offsetY = 0.0f;
+    ctx->zoom += yoffset * 0.5f;
 
-double lastMouseX = 0;
-double lastMouseY = 0;
-int dragging = 0;
+    float minzoom = 1.0f, maxzoom = 100.0f;
 
-////////////////////////////////////////////////////////////////////////////////
-// MOUSE CONTROLS
-////////////////////////////////////////////////////////////////////////////////
+    if (ctx->zoom < minzoom)
+        ctx->zoom = minzoom;
 
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
-    zoom += yoffset * 0.5f;
-
-    if (zoom < 1.0f)
-        zoom = 1.0f;
-
-    if (zoom > 200.0f)
-        zoom = 200.0f;
+    if (ctx->zoom > maxzoom)
+        ctx->zoom = maxzoom;
 }
 
-void mouse_button_callback(GLFWwindow *window, int button, int action,
-                           int mods) {
+static void mouse_button_callback(
+    GLFWwindow *window,
+    int button,
+    int action,
+    int mods) {
+
+    GLContext *ctx = (GLContext *) glfwGetWindowUserPointer(window);
+
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
-        if (action == GLFW_PRESS)
-            dragging = 1;
-        else
-            dragging = 0;
+        ctx->dragging = (action == GLFW_PRESS);
     }
 }
 
-void cursor_position_callback(GLFWwindow *window, double xpos, double ypos) {
+static void cursor_position_callback(
+    GLFWwindow *window,
+    double xpos,
+    double ypos) {
 
-    if (!dragging) {
-        lastMouseX = xpos;
-        lastMouseY = ypos;
+    GLContext *ctx = (GLContext *) glfwGetWindowUserPointer(window);
+
+    if (!ctx->dragging) {
+        ctx->lastMouseX = xpos;
+        ctx->lastMouseY = ypos;
         return;
     }
 
-    float dx = xpos - lastMouseX;
-    float dy = ypos - lastMouseY;
+    float dx = xpos - ctx->lastMouseX;
+    float dy = ypos - ctx->lastMouseY;
 
-    lastMouseX = xpos;
-    lastMouseY = ypos;
+    ctx->lastMouseX = xpos;
+    ctx->lastMouseY = ypos;
 
-    offsetX -= dx / 1000.0f / zoom;
-    offsetY += dy / 1000.0f / zoom;
+    ctx->offsetX -= dx / 1000.0f / ctx->zoom;
+    ctx->offsetY += dy / 1000.0f / ctx->zoom;
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// CUDA KERNEL
-////////////////////////////////////////////////////////////////////////////////
-
-__global__ void checkerboard_kernel(float4 *buffer, int width, int height,
-                                    float t) {
-
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if (x >= width || y >= height)
-        return;
-
-    int idx = y * width + x;
-
-    int checker = (x + y) % 2;
-    int inverted = !checker;
-
-    float fade = (sin(t) + 1.0f) * 0.5f;
-
-    float value = checker * (1.0f - fade) + inverted * fade;
-
-    buffer[idx] = make_float4(value, value, value, 1.0f);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// SHADERS
-////////////////////////////////////////////////////////////////////////////////
 
 static const char *vertexShaderSource =
-    "#version 330 core\n"
-    "layout (location = 0) in vec2 aPos;\n"
-    "out vec2 uv;\n"
-    "void main()\n"
-    "{\n"
-    "   uv = (aPos + 1.0) * 0.5;\n"
-    "   gl_Position = vec4(aPos,0,1);\n"
-    "}";
+"#version 330 core\n"
+"layout (location = 0) in vec2 aPos;\n"
+"out vec2 uv;\n"
+"void main()\n"
+"{\n"
+"   uv = (aPos + 1.0) * 0.5;\n"
+"   gl_Position = vec4(aPos,0,1);\n"
+"}";
 
 static const char *fragmentShaderSource =
-    "#version 330 core\n"
-    "in vec2 uv;\n"
-    "out vec4 FragColor;\n"
-    "uniform sampler2D tex;\n"
-    "uniform float zoom;\n"
-    "uniform vec2 offset;\n"
-    "void main()\n"
-    "{\n"
-    "   vec2 scaled = (uv - 0.5) / zoom + 0.5 + offset;\n"
-    "   FragColor = texture(tex, scaled);\n"
-    "}";
+"#version 330 core\n"
+"in vec2 uv;\n"
+"out vec4 FragColor;\n"
+"uniform sampler2D tex;\n"
+"uniform float zoom;\n"
+"uniform vec2 offset;\n"
+"void main()\n"
+"{\n"
+"   vec2 scaled = (uv - 0.5) / zoom + 0.5 + offset;\n"
+"   FragColor = texture(tex, scaled);\n"
+"}";
 
-////////////////////////////////////////////////////////////////////////////////
-// MAIN FUNCTION
-////////////////////////////////////////////////////////////////////////////////
 
-void test_gl_functions(AppState *state) {
+static void gl_init(GLContext *ctx, AppState *state) {
 
-    int width = state->grid.x;
-    int height = state->grid.y;
+    ctx->width = state->grid.x;
+    ctx->height = state->grid.y;
+
+    ctx->zoom = 8.0f;
+    ctx->offsetX = 0.0f;
+    ctx->offsetY = 0.0f;
+    ctx->dragging = 0;
 
     if (!glfwInit())
         FATAL("GLFW init failed");
@@ -132,28 +105,32 @@ void test_gl_functions(AppState *state) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow *window =
-        glfwCreateWindow(width, height, "CUDA Conway", NULL, NULL);
+    ctx->window = glfwCreateWindow(
+        ctx->width,
+        ctx->height,
+        "CUDA Conway",
+        NULL,
+        NULL);
 
-    if (!window) {
+    if (!ctx->window) {
         glfwTerminate();
         FATAL("Window failed");
     }
 
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(ctx->window);
 
-    glfwSetScrollCallback(window, scroll_callback);
-    glfwSetCursorPosCallback(window, cursor_position_callback);
-    glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetWindowUserPointer(ctx->window, ctx);
+
+    glfwSetScrollCallback(ctx->window, scroll_callback);
+    glfwSetCursorPosCallback(ctx->window, cursor_position_callback);
+    glfwSetMouseButtonCallback(ctx->window, mouse_button_callback);
 
     if (glewInit() != GLEW_OK)
         FATAL("GLEW failed");
 
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, ctx->width, ctx->height);
 
-    ////////////////////////////////////////////////////////////////////////////
-    // SHADERS
-    ////////////////////////////////////////////////////////////////////////////
+    // ---------------- Shader ----------------
 
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
@@ -163,152 +140,210 @@ void test_gl_functions(AppState *state) {
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
 
-    GLuint shaderProgram = glCreateProgram();
+    ctx->shaderProgram = glCreateProgram();
 
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
+    glAttachShader(ctx->shaderProgram, vertexShader);
+    glAttachShader(ctx->shaderProgram, fragmentShader);
+    glLinkProgram(ctx->shaderProgram);
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    GLuint zoomLoc = glGetUniformLocation(shaderProgram, "zoom");
-    GLuint offsetLoc = glGetUniformLocation(shaderProgram, "offset");
+    ctx->zoomLoc = glGetUniformLocation(ctx->shaderProgram, "zoom");
+    ctx->offsetLoc = glGetUniformLocation(ctx->shaderProgram, "offset");
 
-    ////////////////////////////////////////////////////////////////////////////
-    // FULLSCREEN QUAD
-    ////////////////////////////////////////////////////////////////////////////
+    // ---------------- Quad ----------------
 
-    float quad[] = {-1.f, -1.f, 1.f, -1.f, 1.f, 1.f, -1.f, 1.f};
+    float quad[] = {
+        -1.f, -1.f,
+         1.f, -1.f,
+         1.f,  1.f,
+        -1.f,  1.f
+    };
 
-    unsigned int indices[] = {0, 1, 2, 2, 3, 0};
+    unsigned int indices[] = {
+        0,1,2,
+        2,3,0
+    };
 
-    GLuint VAO, VBO, EBO;
+    glGenVertexArrays(1, &ctx->VAO);
+    glGenBuffers(1, &ctx->VBO);
+    glGenBuffers(1, &ctx->EBO);
 
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
+    glBindVertexArray(ctx->VAO);
 
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 sizeof(indices),
+                 indices,
                  GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
+    glVertexAttribPointer(
+        0,
+        2,
+        GL_FLOAT,
+        GL_FALSE,
+        2 * sizeof(float),
+        NULL);
 
     glEnableVertexAttribArray(0);
 
-    ////////////////////////////////////////////////////////////////////////////
-    // TEXTURE
-    ////////////////////////////////////////////////////////////////////////////
+    // ---------------- Texture ----------------
 
-    GLuint texture;
+    glGenTextures(1, &ctx->texture);
+    glBindTexture(GL_TEXTURE_2D, ctx->texture);
 
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D,
+                    GL_TEXTURE_MIN_FILTER,
+                    GL_NEAREST);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,
+                    GL_TEXTURE_MAG_FILTER,
+                    GL_NEAREST);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA,
-                 GL_FLOAT, NULL);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA32F,
+        ctx->width,
+        ctx->height,
+        0,
+        GL_RGBA,
+        GL_FLOAT,
+        NULL);
 
-    ////////////////////////////////////////////////////////////////////////////
-    // CUDA PBO
-    ////////////////////////////////////////////////////////////////////////////
+    // ---------------- CUDA PBO ----------------
 
-    GLuint pbo;
-    cudaGraphicsResource *cuda_pbo;
+    glGenBuffers(1, &ctx->pbo);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, ctx->pbo);
 
-    glGenBuffers(1, &pbo);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-
-    glBufferData(GL_PIXEL_UNPACK_BUFFER,
-                 width * height * sizeof(float4),
-                 NULL,
-                 GL_DYNAMIC_DRAW);
+    glBufferData(
+        GL_PIXEL_UNPACK_BUFFER,
+        ctx->width * ctx->height * sizeof(float4),
+        NULL,
+        GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-    cudaGraphicsGLRegisterBuffer(&cuda_pbo, pbo,
-                                 cudaGraphicsMapFlagsWriteDiscard);
+    cudaGraphicsGLRegisterBuffer(
+        &ctx->cuda_pbo,
+        ctx->pbo,
+        cudaGraphicsMapFlagsWriteDiscard);
 
-    ////////////////////////////////////////////////////////////////////////////
-    // LOOP
-    ////////////////////////////////////////////////////////////////////////////
+    // ---------------- CUDA Buffers ----------------
 
-    float time = 0.0f;
+    size_t grid_bytes =
+        ctx->width *
+        ctx->height *
+        sizeof(uint8_t);
 
-    while (!glfwWindowShouldClose(window)) {
+    uint8_t *d_a;
+    uint8_t *d_b;
 
-        time += 0.02f;
+    cudaMalloc(&d_a, grid_bytes);
+    cudaMalloc(&d_b, grid_bytes);
 
-        float4 *dptr;
-        size_t num_bytes;
+    cuda_init_random(
+        d_a,
+        ctx->width,
+        ctx->height,
+        0.35f,
+        42ULL);
 
-        cudaGraphicsMapResources(1, &cuda_pbo, 0);
+    cudaDeviceSynchronize();
 
-        cudaGraphicsResourceGetMappedPointer(
-            (void **)&dptr,
-            &num_bytes,
-            cuda_pbo);
+    ctx->d_front = d_a;
+    ctx->d_back  = d_b;
+}
+static void gl_render(GLContext *ctx) {
 
-        dim3 block(16, 16);
-        dim3 grid((width + 15) / 16, (height + 15) / 16);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, ctx->pbo);
+    glBindTexture(GL_TEXTURE_2D, ctx->texture);
 
-        checkerboard_kernel<<<grid, block>>>(
-            dptr,
-            width,
-            height,
-            time);
+    glTexSubImage2D(GL_TEXTURE_2D,
+                    0,
+                    0,
+                    0,
+                    ctx->width,
+                    ctx->height,
+                    GL_RGBA,
+                    GL_FLOAT,
+                    0);
 
-        cudaGraphicsUnmapResources(1, &cuda_pbo, 0);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-        ////////////////////////////////////////////////////////////////////////////
-        // UPDATE TEXTURE
-        ////////////////////////////////////////////////////////////////////////////
+    glClear(GL_COLOR_BUFFER_BIT);
 
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+    glUseProgram(ctx->shaderProgram);
 
-        glBindTexture(GL_TEXTURE_2D, texture);
+    glUniform1f(ctx->zoomLoc, ctx->zoom);
+    glUniform2f(ctx->offsetLoc, ctx->offsetX, ctx->offsetY);
 
-        glTexSubImage2D(GL_TEXTURE_2D,
-                        0,
-                        0,
-                        0,
-                        width,
-                        height,
-                        GL_RGBA,
-                        GL_FLOAT,
-                        0);
+    glBindVertexArray(ctx->VAO);
 
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
 
-        ////////////////////////////////////////////////////////////////////////////
-        // RENDER
-        ////////////////////////////////////////////////////////////////////////////
+static void gl_cleanup(GLContext *ctx) {
 
-        glClear(GL_COLOR_BUFFER_BIT);
+    cudaFree(ctx->d_front);
+    cudaFree(ctx->d_back);
 
-        glUseProgram(shaderProgram);
+    cudaGraphicsUnregisterResource(ctx->cuda_pbo);
 
-        glUniform1f(zoomLoc, zoom);
-        glUniform2f(offsetLoc, offsetX, offsetY);
+    glfwDestroyWindow(ctx->window);
+    glfwTerminate();
+}
 
-        glBindVertexArray(VAO);
+static void gl_update(GLContext *ctx) {
 
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    float4 *dptr;
+    size_t num_bytes;
 
-        glfwSwapBuffers(window);
+    cudaGraphicsMapResources(1, &ctx->cuda_pbo, 0);
+
+    cudaGraphicsResourceGetMappedPointer(
+        (void **)&dptr,
+        &num_bytes,
+        ctx->cuda_pbo);
+
+    cuda_game_of_life(
+        ctx->d_front,
+        ctx->d_back,
+        ctx->width,
+        ctx->height);
+
+    cuda_render(
+        ctx->d_back,
+        dptr,
+        ctx->width,
+        ctx->height);
+
+    cudaGraphicsUnmapResources(1, &ctx->cuda_pbo, 0);
+
+    // ping-pong swap
+    uint8_t *tmp = ctx->d_front;
+    ctx->d_front = ctx->d_back;
+    ctx->d_back = tmp;
+}
+
+void start_simulation(AppState *state) {
+    GLContext ctx = {0};
+
+    gl_init(&ctx, state);
+
+    while (!glfwWindowShouldClose(ctx.window)) {
+        gl_update(&ctx);
+        gl_render(&ctx);
+
+        glfwSwapBuffers(ctx.window);
         glfwPollEvents();
     }
 
-    cudaGraphicsUnregisterResource(cuda_pbo);
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    gl_cleanup(&ctx);
 }
+
+
