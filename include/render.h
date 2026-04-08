@@ -33,6 +33,7 @@ typedef struct {
     double lastMouseX;
     double lastMouseY;
     int dragging;
+    int paused;
 } GLContext;
 
 static void gl_init(GLContext *ctx, const AppState *state);

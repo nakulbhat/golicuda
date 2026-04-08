@@ -15,19 +15,28 @@
 #include "../include/render.h"
 #include "../include/state.h"
 
-static void scroll_callback(GLFWwindow *window, double xoffset,
-                            double yoffset) {
+static void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
     GLContext *ctx = (GLContext *)glfwGetWindowUserPointer(window);
 
-    ctx->zoom += yoffset * 0.5f;
+    // Get cursor position in [0,1] UV space
+    double mx, my;
+    glfwGetCursorPos(window, &mx, &my);
+    float uvX = (float)mx / ctx->width;
+    float uvY = 1.0f - (float)my / ctx->height; // flip Y to match GL
 
+    // World point under cursor before zoom
+    float worldX = (uvX - 0.5f) / ctx->zoom + 0.5f + ctx->offsetX;
+    float worldY = (uvY - 0.5f) / ctx->zoom + 0.5f + ctx->offsetY;
+
+    // Apply zoom
+    ctx->zoom += yoffset * 0.5f * (ctx->zoom * 0.2f); // optional: scale speed with zoom level
     float minzoom = 1.0f, maxzoom = 100.0f;
+    if (ctx->zoom < minzoom) ctx->zoom = minzoom;
+    if (ctx->zoom > maxzoom) ctx->zoom = maxzoom;
 
-    if (ctx->zoom < minzoom)
-        ctx->zoom = minzoom;
-
-    if (ctx->zoom > maxzoom)
-        ctx->zoom = maxzoom;
+    // Adjust offset so the same world point stays under the cursor
+    ctx->offsetX = worldX - (uvX - 0.5f) / ctx->zoom - 0.5f;
+    ctx->offsetY = worldY - (uvY - 0.5f) / ctx->zoom - 0.5f;
 }
 
 static void mouse_button_callback(GLFWwindow *window, int button, int action,
@@ -59,6 +68,13 @@ static void cursor_position_callback(GLFWwindow *window, double xpos,
 
     ctx->offsetX -= dx / 1000.0f / ctx->zoom;
     ctx->offsetY += dy / 1000.0f / ctx->zoom;
+}
+
+static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        GLContext *ctx = (GLContext *)glfwGetWindowUserPointer(window);
+        ctx->paused = !ctx->paused;
+    }
 }
 
 static const char *vertexShaderSource = "#version 330 core\n"
@@ -115,6 +131,7 @@ static void gl_init(GLContext *ctx, const AppState *state) {
     glfwSetScrollCallback(ctx->window, scroll_callback);
     glfwSetCursorPosCallback(ctx->window, cursor_position_callback);
     glfwSetMouseButtonCallback(ctx->window, mouse_button_callback);
+    glfwSetKeyCallback(ctx->window, key_callback);
 
     if (glewInit() != GLEW_OK)
         FATAL("GLEW failed");
@@ -274,7 +291,8 @@ void start_simulation(const AppState *state) {
     gl_init(&ctx, state);
 
     while (!glfwWindowShouldClose(ctx.window)) {
-        gl_update(&ctx, state);
+        if (!ctx.paused)
+            gl_update(&ctx, state);
         gl_render(&ctx);
 
         glfwSwapBuffers(ctx.window);
