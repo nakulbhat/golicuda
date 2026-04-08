@@ -290,10 +290,26 @@ void start_simulation(const AppState *state) {
 
     gl_init(&ctx, state);
 
+    double last_time = glfwGetTime();
     while (!glfwWindowShouldClose(ctx.window)) {
         if (!ctx.paused)
             gl_update(&ctx, state);
         gl_render(&ctx);
+
+
+        if (state->flags & VERBOSE_FLAG) {
+            double now = glfwGetTime();
+            double dt = now - last_time;
+            last_time = now;
+
+            static double avg = 0.0;
+            avg = avg * 0.9 + dt * 0.1;
+
+            double fps = 1.0 / avg;
+
+            LOG(state, "FPS: %.0f | frametime: %.3f ms", fps, dt * 1000.0);
+            
+        }
 
         glfwSwapBuffers(ctx.window);
         glfwPollEvents();
