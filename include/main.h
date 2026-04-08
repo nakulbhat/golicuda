@@ -15,7 +15,8 @@ typedef enum {
     COLWISE_CUDA_FLAG = 1 << 3,     // -c
     ELEWISE_CUDA_FLAG = 1 << 4,     // -e
     RANDOM_CELL_FILL_FLAG = 1 << 5, // -f <int>
-    GENERATIONS_FLAG = 1 << 6       // -n <int>
+    GENERATIONS_FLAG = 1 << 6,      // -n <int>
+    RLE_FILE_FLAG = 1 << 7          // -l <rlefile>
 } flags_t;
 
 // mutually exclusive CUDA flags
@@ -23,10 +24,9 @@ typedef enum {
 
 #define DEFAULT_CUDA_FLAG ELEWISE_CUDA_FLAG
 
-#define FATAL(...) \
-    do { \
-        fprintf(stderr, "ERROR:\t" __VA_ARGS__); \
-        fprintf(stderr, "\n"); \
-        exit(EXIT_FAILURE); \
-    } while(0)
-
+#define FATAL(...)                                                             \
+do {                                                                         \
+    fprintf(stderr, "ERROR:\t" __VA_ARGS__);                                   \
+    fprintf(stderr, "\n");                                                     \
+    exit(EXIT_FAILURE);                                                        \
+} while (0)

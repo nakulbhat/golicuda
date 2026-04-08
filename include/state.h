@@ -9,6 +9,8 @@ typedef struct {
     int generations;
     Cell *fill_cell_arr;
     int fill_cell_count;
+    char *rle_file;
+
 } AppState;
 
 void init_default_state(AppState *state);

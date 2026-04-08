@@ -5,21 +5,21 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "../include/main.h"
-#include "../include/state.h"
 #include "../include/args.h"
+#include "../include/main.h"
+#include "../include/rle.h"
+#include "../include/state.h"
 #include "bits/getopt_core.h"
 
-static struct option long_options[] = {
-    {"verbose", no_argument, 0, 'v'},
+static struct option long_options[] = {{"verbose", no_argument, 0, 'v'},
     {"size", required_argument, 0, 's'},
     {"rowwise", no_argument, 0, 'r'},
     {"colwise", no_argument, 0, 'c'},
     {"element", no_argument, 0, 'e'},
     {"fill", required_argument, 0, 'f'},
     {"gens", required_argument, 0, 'n'},
-    {0, 0, 0, 0}
-};
+    {"rle", required_argument, 0, 'l'},
+    {0, 0, 0, 0}};
 
 static void parse_cell(Cell *cell, const char *format) {
     char *xend, *yend;
@@ -88,11 +88,11 @@ static void set_generations(AppState *state, const char *natural_num) {
     state->generations = (int)val;
 }
 
-static void construct_fill_cell_arr(AppState *state, int optind, int argc, char **argv) {
+static void construct_fill_cell_arr(AppState *state, int optind, int argc,
+                                    char **argv) {
     state->fill_cell_count = argc - optind;
 
-    state->fill_cell_arr =
-        (Cell *)malloc(sizeof(Cell) * state->fill_cell_count);
+    state->fill_cell_arr = (Cell *)malloc(sizeof(Cell) * state->fill_cell_count);
 
     if (!state->fill_cell_arr)
         FATAL("Memory allocation failed for fill_cell_arr");
@@ -107,45 +107,50 @@ static void construct_fill_cell_arr(AppState *state, int optind, int argc, char 
 void parse_args(AppState *state, int argc, char **argv) {
     int opt;
 
-    while ((opt = getopt_long(argc, argv, "vs:rcef:n:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "vs:rcef:n:l:", long_options, NULL)) !=
+        -1) {
         switch (opt) {
-        case 'v':
-            state->flags |= VERBOSE_FLAG;
-            break;
+            case 'v':
+                state->flags |= VERBOSE_FLAG;
+                break;
 
-        case 's':
-            set_grid_size(state, optarg);
-            break;
+            case 's':
+                set_grid_size(state, optarg);
+                break;
 
-        case 'r':
-            if (state->flags & CUDA_FLAGS)
-                FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
-            state->flags |= ROWWISE_CUDA_FLAG;
-            break;
+            case 'r':
+                if (state->flags & CUDA_FLAGS)
+                    FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
+                state->flags |= ROWWISE_CUDA_FLAG;
+                break;
 
-        case 'c':
-            if (state->flags & CUDA_FLAGS)
-                FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
-            state->flags |= COLWISE_CUDA_FLAG;
-            break;
+            case 'c':
+                if (state->flags & CUDA_FLAGS)
+                    FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
+                state->flags |= COLWISE_CUDA_FLAG;
+                break;
 
-        case 'e':
-            if (state->flags & CUDA_FLAGS)
-                FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
-            state->flags |= ELEWISE_CUDA_FLAG;
-            break;
+            case 'e':
+                if (state->flags & CUDA_FLAGS)
+                    FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
+                state->flags |= ELEWISE_CUDA_FLAG;
+                break;
 
-        case 'f':
-            set_random_fill(state, optarg);
-            break;
+            case 'f':
+                set_random_fill(state, optarg);
+                break;
 
-        case 'n':
-            set_generations(state, optarg);
-            break;
+            case 'n':
+                set_generations(state, optarg);
+                break;
+            case 'l':
+                state->rle_file = strdup(optarg);
+                state->flags |= RLE_FILE_FLAG;
+                break;
 
-        default:
-            fprintf(stderr, "Invalid option\n");
-            exit(EXIT_FAILURE);
+            default:
+                fprintf(stderr, "Invalid option\n");
+                exit(EXIT_FAILURE);
         }
     }
 
@@ -157,5 +162,9 @@ void parse_args(AppState *state, int argc, char **argv) {
 
     if (argc > optind) {
         construct_fill_cell_arr(state, optind, argc, argv);
+    }
+
+    if (state->flags & RLE_FILE_FLAG) {
+    load_rle(state, state->rle_file);
     }
 }

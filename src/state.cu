@@ -8,6 +8,7 @@ void init_default_state(AppState *state) {
     state->generations = 100;
     state->fill_cell_arr = NULL;
     state->fill_cell_count = 0;
+    state->rle_file = NULL;
 }
 
 void free_state(AppState *state) {

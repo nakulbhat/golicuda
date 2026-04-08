@@ -256,7 +256,7 @@ static void gl_update(GLContext *ctx, const AppState *state) {
     cudaGraphicsResourceGetMappedPointer((void **)&dptr, &num_bytes,
                                          ctx->cuda_pbo);
 
-    //cuda_game_of_life(ctx->d_front, ctx->d_back, ctx->width, ctx->height, state);
+    cuda_game_of_life(ctx->d_front, ctx->d_back, ctx->width, ctx->height, state);
 
     cuda_render(ctx->d_back, dptr, ctx->width, ctx->height);
 
