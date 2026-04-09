@@ -12,7 +12,7 @@ void emit_help(const char *prog) {
     fprintf(stderr, "OPTIONS:\n");
     OPT("-h, --help", "Show this help");
     OPT("-v, --verbose", "Verbose logging");
-    OPT("-s, --size <WxH|preset>", "Grid size (default: 100x100)");
+    OPT("-s, --size <WxH|preset>", "Grid size (default: 1080p)");
     OPT("-r, --rowwise", "Row-wise CUDA");
     OPT("-c, --colwise", "Column-wise CUDA");
     OPT("-e, --element", "Element-wise CUDA (default)");
@@ -20,7 +20,7 @@ void emit_help(const char *prog) {
     OPT("-b, --bitpacked", "Bitpacked grid with 32 bit word/thread");
     OPT("-a, --bitpacked-atomic", "Atomic bitpacked grid with 1 bit cell/thread");
     OPT("-f, --fill <0-100>", "Random fill (default: 8)");
-    OPT("-n, --gens <num>", "Generations (-1 infinite)");
+    OPT("-n, --gens <num>", "Generations (-1 for infinite, default 1000)");
     OPT("-i, --input-rle <file>", "Load RLE pattern");
     OPT("-H, --headless", "Run without rendering");
     OPT("-V, --no-vsync", "Disable vsync");

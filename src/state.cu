@@ -2,10 +2,10 @@
 #include "../include/state.h"
 
 void init_default_state(AppState *state) {
-    state->grid = (Cell){100, 100};
+    state->grid = (Cell){1920,1080};
     state->flags = 0;
     state->random_fill_percentage = 8;
-    state->generations = 100;
+    state->generations = 1000;
     state->fill_cell_arr = NULL;
     state->fill_cell_count = 0;
     state->rle_file = NULL;
