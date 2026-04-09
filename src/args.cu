@@ -26,6 +26,7 @@ static struct option long_options[] = {
     {"headless", no_argument, 0, 'H'},
     {"bitpacked", no_argument, 0, 'B'},
     {"bitpacked-atomic", no_argument, 0, 'b'},
+    {"tiled", no_argument, 0, 't'},
     {"no-vsync", no_argument, 0, 'V'},
     {0, 0, 0, 0}
 };
@@ -124,9 +125,16 @@ static void construct_fill_cell_arr(AppState *state, int optind, int argc,
 void parse_args(AppState *state, int argc, char **argv) {
     int opt;
     opterr = 0;
-    while ((opt = getopt_long(argc, argv, "bBHVhvs:rcef:n:i:", long_options, NULL)) !=
+    while ((opt = getopt_long(argc, argv, "tbBHVhvs:rcef:n:i:", long_options, NULL)) !=
         -1) {
         switch (opt) {
+            case 't':
+                if(state->flags & TILED_FLAG)
+                    FATAL("Cannot specify tiled twice");
+                if(state->flags & (ROWWISE_CUDA_FLAG | COLWISE_CUDA_FLAG))
+                    FATAL("Tiling cannot be specified with rowwise or colwise operations");
+                state->flags |= TILED_FLAG;
+                break;
             case 'b':
                 if(state->flags & BITPACKED_FLAG)
                     FATAL("Cannot specify bitpacked-atomic with bitpacked");
@@ -166,12 +174,16 @@ void parse_args(AppState *state, int argc, char **argv) {
             case 'r':
                 if (state->flags & CUDA_FLAGS)
                     FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
+                if (state->flags & TILED_FLAG)
+                    FATAL("Cannot specify rowwise flag with tiling flag");
                 state->flags |= ROWWISE_CUDA_FLAG;
                 break;
 
             case 'c':
                 if (state->flags & CUDA_FLAGS)
                     FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
+                if (state->flags & TILED_FLAG)
+                    FATAL("Cannot specify colwise flag with tiling flag");
                 state->flags |= COLWISE_CUDA_FLAG;
                 break;
 

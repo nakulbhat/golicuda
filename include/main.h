@@ -9,18 +9,19 @@ typedef struct {
 } Cell;
 
 typedef enum {
-    VERBOSE_FLAG = 1 << 0,          // -v
-    GRID_SIZE_FLAG = 1 << 1,        // -s <int>,<int>
-    ROWWISE_CUDA_FLAG = 1 << 2,     // -r
-    COLWISE_CUDA_FLAG = 1 << 3,     // -c
-    ELEWISE_CUDA_FLAG = 1 << 4,     // -e
-    RANDOM_CELL_FILL_FLAG = 1 << 5, // -f <int>
-    GENERATIONS_FLAG = 1 << 6,      // -n <int>
-    RLE_FILE_FLAG = 1 << 7,         // -l <rlefile>
-    NO_VSYNC_FLAG = 1 << 8,         // -V
-    HEADLESS_FLAG = 1 << 9,         // -H
-    BITPACKED_FLAG = 1 << 10,       // -B
-    BITPACKED_ATOMIC_FLAG = 1 << 11,       // -b
+    VERBOSE_FLAG = 1 << 0,           // -v
+    GRID_SIZE_FLAG = 1 << 1,         // -s <int>,<int>
+    ROWWISE_CUDA_FLAG = 1 << 2,      // -r
+    COLWISE_CUDA_FLAG = 1 << 3,      // -c
+    ELEWISE_CUDA_FLAG = 1 << 4,      // -e
+    RANDOM_CELL_FILL_FLAG = 1 << 5,  // -f <int>
+    GENERATIONS_FLAG = 1 << 6,       // -n <int>
+    RLE_FILE_FLAG = 1 << 7,          // -l <rlefile>
+    NO_VSYNC_FLAG = 1 << 8,          // -V
+    HEADLESS_FLAG = 1 << 9,          // -H
+    BITPACKED_FLAG = 1 << 10,        // -B
+    BITPACKED_ATOMIC_FLAG = 1 << 11, // -b
+    TILED_FLAG = 1 << 12,            // -t
 } flags_t;
 
 // mutually exclusive CUDA flags
