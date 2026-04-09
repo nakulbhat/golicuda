@@ -11,6 +11,7 @@ size_t grid_bytes(int width, int height, int bitpacked) {
     return (size_t)width * height * sizeof(uint8_t);
 }
 
+
 __global__ void init_random_kernel(uint8_t *grid, int width, int height,
                                    float fill_pct, unsigned long long seed) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -41,11 +42,10 @@ __global__ void init_random_bitpacked_kernel(uint32_t *grid, int width,
     curandState state;
     curand_init(seed, idx, 0, &state);
 
-    // Grid must be zeroed before this kernel runs (cudaMemset).
-    // We only atomicOr the 1-bits to avoid clobbering neighbours in the word.
-    if (curand_uniform(&state) < fill_pct)
+            if (curand_uniform(&state) < fill_pct)
         atomicOr(&grid[idx >> 5], 1u << (idx & 31));
 }
+
 
 __global__ void game_of_life_elewise_kernel(const uint8_t *src, uint8_t *dst,
                                             int width, int height) {
@@ -138,14 +138,17 @@ __global__ void game_of_life_colwise_kernel(const uint8_t *src, uint8_t *dst,
     }
 }
 
-__global__ void game_of_life_bitpacked_kernel(const uint32_t *src,
-                                              uint32_t *dst, int width,
-                                              int height) {
-    // Each thread owns one 32-bit word = 32 consecutive cells in a row.
-    // word_x is the word index along x; each word covers cells [wx*32 ..
-    // wx*32+31]
-    int word_x = blockIdx.x * blockDim.x + threadIdx.x; // word index in row
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+__device__ static inline int bp_read(const uint32_t *src, int width, int x, int y) {
+    int i = y * width + x;
+    return (src[i >> 5] >> (i & 31)) & 1;
+}
+
+__global__ void game_of_life_bitpacked_elewise_kernel(const uint32_t *src,
+                                                      uint32_t *dst,
+                                                      int width, int height) {
+    int word_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y      = blockIdx.y * blockDim.y + threadIdx.y;
 
     int words_per_row = (width + 31) / 32;
     if (word_x >= words_per_row || y >= height)
@@ -163,62 +166,272 @@ __global__ void game_of_life_bitpacked_kernel(const uint32_t *src,
             for (int dx = -1; dx <= 1; dx++) {
                 if (dx == 0 && dy == 0)
                     continue;
-                int nx = (x + dx + width) % width;
+                int nx = (x + dx + width)  % width;
                 int ny = (y + dy + height) % height;
-                int i = ny * width + nx;
-                neighbours += (src[i >> 5] >> (i & 31)) & 1;
+                neighbours += bp_read(src, width, nx, ny);
             }
         }
 
-        int i = y * width + x;
-        int cell = (src[i >> 5] >> (i & 31)) & 1;
-        int alive = cell ? (neighbours == 2 || neighbours == 3) : (neighbours == 3);
-
-        result |= (alive << bit);
+        int cell  = bp_read(src, width, x, y);
+        int alive = cell ? (neighbours == 2 || neighbours == 3)
+                         : (neighbours == 3);
+        result |= ((uint32_t)alive << bit);
     }
 
-    dst[word_x + y * words_per_row] = result; // single non-atomic write
+    dst[word_x + y * words_per_row] = result;
 }
+
+__global__ void game_of_life_bitpacked_rowwise_kernel(const uint32_t *src,
+                                                      uint32_t *dst,
+                                                      int width, int height) {
+    int y = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (y >= height)
+        return;
+
+    int words_per_row = (width + 31) / 32;
+
+    for (int word_x = 0; word_x < words_per_row; word_x++) {
+        uint32_t result = 0;
+
+        for (int bit = 0; bit < 32; bit++) {
+            int x = word_x * 32 + bit;
+            if (x >= width)
+                break;
+
+            int neighbours = 0;
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    if (dx == 0 && dy == 0)
+                        continue;
+                    int nx = (x + dx + width)  % width;
+                    int ny = (y + dy + height) % height;
+                    neighbours += bp_read(src, width, nx, ny);
+                }
+            }
+
+            int cell  = bp_read(src, width, x, y);
+            int alive = cell ? (neighbours == 2 || neighbours == 3)
+                             : (neighbours == 3);
+            result |= ((uint32_t)alive << bit);
+        }
+
+        dst[word_x + y * words_per_row] = result;
+    }
+}
+
+__global__ void game_of_life_bitpacked_colwise_kernel(const uint32_t *src,
+                                                      uint32_t *dst,
+                                                      int width, int height) {
+        int word_x = blockIdx.x * blockDim.x + threadIdx.x;
+
+    int words_per_row = (width + 31) / 32;
+    if (word_x >= words_per_row)
+        return;
+
+    for (int y = 0; y < height; y++) {
+        uint32_t result = 0;
+
+        for (int bit = 0; bit < 32; bit++) {
+            int x = word_x * 32 + bit;
+            if (x >= width)
+                break;
+
+            int neighbours = 0;
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    if (dx == 0 && dy == 0)
+                        continue;
+                    int nx = (x + dx + width)  % width;
+                    int ny = (y + dy + height) % height;
+                    neighbours += bp_read(src, width, nx, ny);
+                }
+            }
+
+            int cell  = bp_read(src, width, x, y);
+            int alive = cell ? (neighbours == 2 || neighbours == 3)
+                             : (neighbours == 3);
+            result |= ((uint32_t)alive << bit);
+        }
+
+        dst[word_x + y * words_per_row] = result;
+    }
+}
+
+
+__global__ void game_of_life_bitpacked_atomic_elewise_kernel(const uint32_t *src,
+                                                             uint32_t *dst,
+                                                             int width,
+                                                             int height) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    int neighbours = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0)
+                continue;
+            int nx = (x + dx + width)  % width;
+            int ny = (y + dy + height) % height;
+            neighbours += bp_read(src, width, nx, ny);
+        }
+    }
+
+    int cell  = bp_read(src, width, x, y);
+    int alive = cell ? (neighbours == 2 || neighbours == 3) : (neighbours == 3);
+
+    int      idx = y * width + x;
+    uint32_t bit = 1u << (idx & 31);
+
+    if (alive)
+        atomicOr (&dst[idx >> 5], bit);
+    else
+        atomicAnd(&dst[idx >> 5], ~bit);
+}
+
+__global__ void game_of_life_bitpacked_atomic_rowwise_kernel(const uint32_t *src,
+                                                             uint32_t *dst,
+                                                             int width,
+                                                             int height) {
+    int y = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (y >= height)
+        return;
+
+    for (int x = 0; x < width; x++) {
+        int neighbours = 0;
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx == 0 && dy == 0)
+                    continue;
+                int nx = (x + dx + width)  % width;
+                int ny = (y + dy + height) % height;
+                neighbours += bp_read(src, width, nx, ny);
+            }
+        }
+
+        int cell  = bp_read(src, width, x, y);
+        int alive = cell ? (neighbours == 2 || neighbours == 3) : (neighbours == 3);
+
+        int      idx = y * width + x;
+        uint32_t bit = 1u << (idx & 31);
+
+        if (alive)
+            atomicOr (&dst[idx >> 5], bit);
+        else
+            atomicAnd(&dst[idx >> 5], ~bit);
+    }
+}
+
+__global__ void game_of_life_bitpacked_atomic_colwise_kernel(const uint32_t *src,
+                                                             uint32_t *dst,
+                                                             int width,
+                                                             int height) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (x >= width)
+        return;
+
+    for (int y = 0; y < height; y++) {
+        int neighbours = 0;
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx == 0 && dy == 0)
+                    continue;
+                int nx = (x + dx + width)  % width;
+                int ny = (y + dy + height) % height;
+                neighbours += bp_read(src, width, nx, ny);
+            }
+        }
+
+        int cell  = bp_read(src, width, x, y);
+        int alive = cell ? (neighbours == 2 || neighbours == 3) : (neighbours == 3);
+
+        int      idx = y * width + x;
+        uint32_t bit = 1u << (idx & 31);
+
+        if (alive)
+            atomicOr (&dst[idx >> 5], bit);
+        else
+            atomicAnd(&dst[idx >> 5], ~bit);
+    }
+}
+
 
 void cuda_game_of_life(const void *src, void *dst, int width, int height,
                        const AppState *state) {
-    if (state->flags & BITPACKED_FLAG) {
-        int words_per_row = (width + 31) / 32;
 
-        // x-dim covers words, y-dim covers rows
+    int words_per_row = (width + 31) / 32;
+
+    if (state->flags & BITPACKED_FLAG) {
+
         dim3 block(16, 16);
         dim3 grid_dim((words_per_row + 15) / 16, (height + 15) / 16);
 
-        game_of_life_bitpacked_kernel<<<grid_dim, block>>>(
-            (const uint32_t *)src, (uint32_t *)dst, width, height);
+        if (state->flags & ROWWISE_CUDA_FLAG) {
+            int threads = 256;
+            int blocks  = (height + threads - 1) / threads;
+            game_of_life_bitpacked_rowwise_kernel<<<blocks, threads>>>(
+                (const uint32_t *)src, (uint32_t *)dst, width, height);
+
+        } else if (state->flags & COLWISE_CUDA_FLAG) {
+            int threads = 256;
+            int blocks  = (words_per_row + threads - 1) / threads;
+            game_of_life_bitpacked_colwise_kernel<<<blocks, threads>>>(
+                (const uint32_t *)src, (uint32_t *)dst, width, height);
+
+        } else {
+            game_of_life_bitpacked_elewise_kernel<<<grid_dim, block>>>(
+                (const uint32_t *)src, (uint32_t *)dst, width, height);
+        }
+
+    } else if (state->flags & BITPACKED_ATOMIC_FLAG) {
+
+        dim3 block    = cuda_default_block();
+        dim3 grid_dim = cuda_default_grid(width, height);
+
+        if (state->flags & ROWWISE_CUDA_FLAG) {
+            int threads = 256;
+            int blocks  = (height + threads - 1) / threads;
+            game_of_life_bitpacked_atomic_rowwise_kernel<<<blocks, threads>>>(
+                (const uint32_t *)src, (uint32_t *)dst, width, height);
+
+        } else if (state->flags & COLWISE_CUDA_FLAG) {
+            int threads = 256;
+            int blocks  = (width + threads - 1) / threads;
+            game_of_life_bitpacked_atomic_colwise_kernel<<<blocks, threads>>>(
+                (const uint32_t *)src, (uint32_t *)dst, width, height);
+
+        } else {
+            game_of_life_bitpacked_atomic_elewise_kernel<<<grid_dim, block>>>(
+                (const uint32_t *)src, (uint32_t *)dst, width, height);
+        }
 
     } else if (state->flags & ROWWISE_CUDA_FLAG) {
-
         int threads = 256;
-        int blocks = (height + threads - 1) / threads;
-
+        int blocks  = (height + threads - 1) / threads;
         game_of_life_rowwise_kernel<<<blocks, threads>>>(
             (const uint8_t *)src, (uint8_t *)dst, width, height);
 
     } else if (state->flags & COLWISE_CUDA_FLAG) {
-
         int threads = 256;
-        int blocks = (width + threads - 1) / threads;
-
+        int blocks  = (width + threads - 1) / threads;
         game_of_life_colwise_kernel<<<blocks, threads>>>(
             (const uint8_t *)src, (uint8_t *)dst, width, height);
 
-    } else { // ELEWISE (default)
-
-        dim3 block = cuda_default_block();
+    } else {
+        dim3 block    = cuda_default_block();
         dim3 grid_dim = cuda_default_grid(width, height);
-
         game_of_life_elewise_kernel<<<grid_dim, block>>>(
             (const uint8_t *)src, (uint8_t *)dst, width, height);
     }
 
     CUDA_CHECK(cudaGetLastError());
 }
+
 
 __global__ void render_kernel(const uint8_t *grid, float4 *buffer, int width,
                               int height) {
@@ -247,6 +460,7 @@ __global__ void render_bitpacked_kernel(const uint32_t *grid, float4 *buffer,
 
     buffer[idx] = make_float4(v, v, v, 1.0f);
 }
+
 
 __global__ void fill_cells_kernel(uint8_t *grid, int width, int height,
                                   const Cell *cells, int count) {
@@ -280,21 +494,21 @@ __global__ void fill_cells_bitpacked_kernel(uint32_t *grid, int width,
     atomicOr(&grid[i >> 5], 1u << (i & 31));
 }
 
+
 dim3 cuda_default_block() { return dim3(16, 16); }
 
 dim3 cuda_default_grid(int width, int height) {
     return dim3((width + 15) / 16, (height + 15) / 16);
 }
 
+
 void cuda_init_random(void *grid, int width, int height, float fill_pct,
                       unsigned long long seed, int bitpacked) {
-    dim3 block = cuda_default_block();
+    dim3 block    = cuda_default_block();
     dim3 grid_dim = cuda_default_grid(width, height);
 
     if (bitpacked) {
-        // Must be zeroed first — kernel only sets 1-bits
         CUDA_CHECK(cudaMemset(grid, 0, grid_bytes(width, height, 1)));
-
         init_random_bitpacked_kernel<<<grid_dim, block>>>((uint32_t *)grid, width,
                                                           height, fill_pct, seed);
     } else {
@@ -308,12 +522,12 @@ void cuda_init_random(void *grid, int width, int height, float fill_pct,
 
 void cuda_render(const void *grid, float4 *buffer, int width, int height,
                  int bitpacked) {
-    dim3 block = cuda_default_block();
+    dim3 block    = cuda_default_block();
     dim3 grid_dim = cuda_default_grid(width, height);
 
     if (bitpacked) {
-        render_bitpacked_kernel<<<grid_dim, block>>>((const uint32_t *)grid, buffer,
-                                                     width, height);
+        render_bitpacked_kernel<<<grid_dim, block>>>((const uint32_t *)grid,
+                                                     buffer, width, height);
     } else {
         render_kernel<<<grid_dim, block>>>((const uint8_t *)grid, buffer, width,
                                            height);
@@ -327,14 +541,14 @@ void cuda_fill_cells(void *d_grid, int width, int height, const Cell *cells,
     if (!cells || count <= 0)
         return;
 
-    Cell *d_cells;
+    Cell  *d_cells;
     size_t bytes = count * sizeof(Cell);
 
     cudaMalloc(&d_cells, bytes);
     cudaMemcpy(d_cells, cells, bytes, cudaMemcpyHostToDevice);
 
     int block = 256;
-    int grid = (count + block - 1) / block;
+    int grid  = (count + block - 1) / block;
 
     if (bitpacked) {
         fill_cells_bitpacked_kernel<<<grid, block>>>((uint32_t *)d_grid, width,
@@ -348,15 +562,19 @@ void cuda_fill_cells(void *d_grid, int width, int height, const Cell *cells,
     cudaFree(d_cells);
 }
 
+
 void run_headless(const AppState *state) {
-    int width = state->grid.x;
+    int width  = state->grid.x;
     int height = state->grid.y;
-    int bp = (state->flags & BITPACKED_FLAG) != 0;
+
+        int bp           = (state->flags & (BITPACKED_FLAG | BITPACKED_ATOMIC_FLAG)) != 0;
+        int needs_memset = (state->flags & BITPACKED_ATOMIC_FLAG) != 0;
+
     size_t gbytes = grid_bytes(width, height, bp);
 
     void *d_front, *d_back;
     cudaMalloc(&d_front, gbytes);
-    cudaMalloc(&d_back, gbytes);
+    cudaMalloc(&d_back,  gbytes);
 
     cuda_init_random(d_front, width, height,
                      state->random_fill_percentage / 100.0f, 42ULL, bp);
@@ -365,21 +583,20 @@ void run_headless(const AppState *state) {
     cuda_fill_cells(d_front, width, height, state->fill_cell_arr,
                     state->fill_cell_count, bp);
 
-    // dst buffer must start zeroed for bitpacked (atomicOr-only write path)
-    if (bp)
+    if (needs_memset)
         CUDA_CHECK(cudaMemset(d_back, 0, gbytes));
 
-    int gens = (state->generations > 0) ? state->generations : 1000;
+    int    gens     = (state->generations > 0) ? state->generations : 1000;
     double total_ms = 0.0;
-    double min_ms = 1e9;
-    double max_ms = 0.0;
+    double min_ms   = 1e9;
+    double max_ms   = 0.0;
 
     cudaEvent_t t0, t1;
     cudaEventCreate(&t0);
     cudaEventCreate(&t1);
 
     for (int g = 0; g < gens; g++) {
-        if (bp)
+        if (needs_memset)
             CUDA_CHECK(cudaMemset(d_back, 0, gbytes));
 
         cudaEventRecord(t0);
@@ -391,15 +608,12 @@ void run_headless(const AppState *state) {
         cudaEventElapsedTime(&ms, t0, t1);
 
         total_ms += ms;
-        if (ms < min_ms)
-            min_ms = ms;
-        if (ms > max_ms)
-            max_ms = ms;
+        if (ms < min_ms) min_ms = ms;
+        if (ms > max_ms) max_ms = ms;
 
-        // ping-pong
         void *tmp = d_front;
-        d_front = d_back;
-        d_back = tmp;
+        d_front   = d_back;
+        d_back    = tmp;
     }
 
     cudaEventDestroy(t0);
@@ -407,13 +621,22 @@ void run_headless(const AppState *state) {
     cudaFree(d_front);
     cudaFree(d_back);
 
-    double avg_ms = total_ms / gens;
-    double avg_fps = 1000.0 / avg_ms;
-    long cells = (long)width * height;
+    double avg_ms  = total_ms / gens;
+    double avg_fps = 1000.0  / avg_ms;
+    long   cells   = (long)width * height;
+
+    const char *mode =
+        (state->flags & BITPACKED_ATOMIC_FLAG) ? "bitpacked-atomic (cell/thread)" :
+        (state->flags & BITPACKED_FLAG)         ? "bitpacked-wordwise (word/thread)" :
+                                                  "byte-per-cell";
+    const char *parallelism =
+        (state->flags & ROWWISE_CUDA_FLAG) ? "rowwise" :
+        (state->flags & COLWISE_CUDA_FLAG) ? "colwise" :
+                                             "elewise";
 
     fprintf(stderr, "\n=== Headless Perf Report ===\n");
     fprintf(stderr, "Grid        : %d x %d  (%ld cells)\n", width, height, cells);
-    fprintf(stderr, "Mode        : %s\n", bp ? "bitpacked" : "byte-per-cell");
+    fprintf(stderr, "Mode        : %s / %s\n", mode, parallelism);
     fprintf(stderr, "Generations : %d\n", gens);
     fprintf(stderr, "Avg         : %.3f ms  (%.0f gen/s)\n", avg_ms, avg_fps);
     fprintf(stderr, "Min         : %.3f ms\n", min_ms);

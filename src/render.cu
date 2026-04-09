@@ -224,7 +224,7 @@ static void gl_init(GLContext *ctx, const AppState *state) {
                                  cudaGraphicsMapFlagsWriteDiscard);
 
     
-    int    bp     = (state->flags & BITPACKED_FLAG) != 0;
+    int bp = (state->flags & (BITPACKED_FLAG | BITPACKED_ATOMIC_FLAG)) != 0;
     size_t gbytes = grid_bytes(ctx->width, ctx->height, bp);
 
     void *d_a, *d_b;
@@ -284,8 +284,10 @@ static void gl_update(GLContext *ctx, const AppState *state) {
     cudaGraphicsResourceGetMappedPointer((void **)&dptr, &num_bytes,
                                          ctx->cuda_pbo);
 
-    int bp = (state->flags & BITPACKED_FLAG) != 0;
-    if (bp) cudaMemset(ctx->d_back, 0, grid_bytes(ctx->width, ctx->height, 1));
+    int bp = (state->flags & (BITPACKED_FLAG | BITPACKED_ATOMIC_FLAG)) != 0;
+    int needs_memset = (state->flags & BITPACKED_ATOMIC_FLAG) != 0;
+    if (needs_memset)
+        cudaMemset(ctx->d_back, 0, grid_bytes(ctx->width, ctx->height, 1));
 
     cuda_game_of_life(ctx->d_front, ctx->d_back, ctx->width, ctx->height, state);
     cuda_render(ctx->d_back, dptr, ctx->width, ctx->height, bp);
@@ -310,7 +312,7 @@ void start_simulation(const AppState *state) {
     size_t num_bytes;
     cudaGraphicsMapResources(1, &ctx.cuda_pbo, 0);
     cudaGraphicsResourceGetMappedPointer((void **)&dptr, &num_bytes, ctx.cuda_pbo);
-    int bp = (state->flags & BITPACKED_FLAG) != 0;
+    int bp = (state->flags & (BITPACKED_FLAG | BITPACKED_ATOMIC_FLAG)) != 0;
     cuda_render(ctx.d_front, dptr, ctx.width, ctx.height, bp);
     cudaGraphicsUnmapResources(1, &ctx.cuda_pbo, 0);
 

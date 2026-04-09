@@ -25,6 +25,7 @@ static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"headless", no_argument, 0, 'H'},
     {"bitpacked", no_argument, 0, 'B'},
+    {"bitpacked-atomic", no_argument, 0, 'b'},
     {"no-vsync", no_argument, 0, 'V'},
     {0, 0, 0, 0}
 };
@@ -123,10 +124,19 @@ static void construct_fill_cell_arr(AppState *state, int optind, int argc,
 void parse_args(AppState *state, int argc, char **argv) {
     int opt;
     opterr = 0;
-    while ((opt = getopt_long(argc, argv, "BHVhvs:rcef:n:i:", long_options, NULL)) !=
+    while ((opt = getopt_long(argc, argv, "bBHVhvs:rcef:n:i:", long_options, NULL)) !=
         -1) {
         switch (opt) {
+            case 'b':
+                if(state->flags & BITPACKED_FLAG)
+                    FATAL("Cannot specify bitpacked-atomic with bitpacked");
+                if(state->flags & BITPACKED_ATOMIC_FLAG)
+                    FATAL("Cannot specify bitpacked-atomic twice");
+                state->flags |= BITPACKED_ATOMIC_FLAG;
+                break;
             case 'B':
+                if(state->flags & BITPACKED_ATOMIC_FLAG)
+                    FATAL("Cannot specify bitpacked with bitpacked-atomic");
                 if(state->flags & BITPACKED_FLAG)
                     FATAL("Cannot specify bitpacked twice");
                 state->flags |= BITPACKED_FLAG;

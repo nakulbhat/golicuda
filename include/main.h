@@ -20,6 +20,7 @@ typedef enum {
     NO_VSYNC_FLAG = 1 << 8,         // -V
     HEADLESS_FLAG = 1 << 9,         // -H
     BITPACKED_FLAG = 1 << 10,       // -B
+    BITPACKED_ATOMIC_FLAG = 1 << 11,       // -b
 } flags_t;
 
 // mutually exclusive CUDA flags
