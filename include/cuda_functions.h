@@ -37,6 +37,8 @@ void cuda_fill_cells(
 dim3 cuda_default_block();
 dim3 cuda_default_grid(int width, int height);
 
+void run_headless(const AppState *state);
+
 #define CUDA_CHECK(x) \
     do { \
         cudaError_t err = x; \

@@ -279,3 +279,66 @@ void cuda_fill_cells(
 
     cudaFree(d_cells);
 }
+
+void run_headless(const AppState *state) {
+    int width  = state->grid.x;
+    int height = state->grid.y;
+    size_t grid_bytes = width * height * sizeof(uint8_t);
+
+    uint8_t *d_front, *d_back;
+    cudaMalloc(&d_front, grid_bytes);
+    cudaMalloc(&d_back,  grid_bytes);
+
+    cuda_init_random(d_front, width, height,
+                     state->random_fill_percentage / 100.0f, 42ULL);
+    cudaDeviceSynchronize();
+
+    cuda_fill_cells(d_front, width, height,
+                    state->fill_cell_arr, state->fill_cell_count);
+
+    int    gens      = (state->generations > 0) ? state->generations : 1000;
+    double total_ms  = 0.0;
+    double min_ms    = 1e9;
+    double max_ms    = 0.0;
+
+    cudaEvent_t t0, t1;
+    cudaEventCreate(&t0);
+    cudaEventCreate(&t1);
+
+    for (int g = 0; g < gens; g++) {
+        cudaEventRecord(t0);
+        cuda_game_of_life(d_front, d_back, width, height, state);
+        cudaEventRecord(t1);
+        cudaEventSynchronize(t1);
+
+        float ms = 0.0f;
+        cudaEventElapsedTime(&ms, t0, t1);
+
+        total_ms += ms;
+        if (ms < min_ms) min_ms = ms;
+        if (ms > max_ms) max_ms = ms;
+
+        // ping-pong
+        uint8_t *tmp = d_front;
+        d_front = d_back;
+        d_back  = tmp;
+    }
+
+    cudaEventDestroy(t0);
+    cudaEventDestroy(t1);
+    cudaFree(d_front);
+    cudaFree(d_back);
+
+    double avg_ms  = total_ms / gens;
+    double avg_fps = 1000.0  / avg_ms;
+    long   cells   = (long)width * height;
+
+    fprintf(stderr, "\n=== Headless Perf Report ===\n");
+    fprintf(stderr, "Grid        : %d x %d  (%ld cells)\n", width, height, cells);
+    fprintf(stderr, "Generations : %d\n", gens);
+    fprintf(stderr, "Avg         : %.3f ms  (%.0f gen/s)\n", avg_ms, avg_fps);
+    fprintf(stderr, "Min         : %.3f ms\n", min_ms);
+    fprintf(stderr, "Max         : %.3f ms\n", max_ms);
+    fprintf(stderr, "Total       : %.1f ms\n", total_ms);
+    fprintf(stderr, "Cell-steps/s: %.3e\n", (double)cells * avg_fps);
+}

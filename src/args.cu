@@ -23,6 +23,7 @@ static struct option long_options[] = {
     {"gens", required_argument, 0, 'n'},
     {"input-rle", required_argument, 0, 'i'},
     {"help", no_argument, 0, 'h'},
+    {"headless", no_argument, 0, 'H'},
     {"no-vsync", no_argument, 0, 'V'},
     {0, 0, 0, 0}
 };
@@ -121,9 +122,14 @@ static void construct_fill_cell_arr(AppState *state, int optind, int argc,
 void parse_args(AppState *state, int argc, char **argv) {
     int opt;
     opterr = 0;
-    while ((opt = getopt_long(argc, argv, "Vhvs:rcef:n:i:", long_options, NULL)) !=
+    while ((opt = getopt_long(argc, argv, "HVhvs:rcef:n:i:", long_options, NULL)) !=
         -1) {
         switch (opt) {
+            case 'H':
+                if(state->flags & HEADLESS_FLAG)
+                    FATAL("Cannot specify headless twice");
+                state->flags |= HEADLESS_FLAG;
+                break;
             case 'V':
                 if (state->flags & NO_VSYNC_FLAG)
                     FATAL("Cannot specify no-vsync twice");
