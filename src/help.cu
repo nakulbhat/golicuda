@@ -12,15 +12,23 @@ void emit_help(const char *prog) {
     fprintf(stderr, "OPTIONS:\n");
     OPT("-h, --help", "Show this help");
     OPT("-v, --verbose", "Verbose logging");
-    OPT("-s, --size <WxH|preset>", "Grid size (100x100 default)");
+    OPT("-s, --size <WxH|preset>", "Grid size (default: 100x100)");
     OPT("-r, --rowwise", "Row-wise CUDA");
     OPT("-c, --colwise", "Column-wise CUDA");
     OPT("-e, --element", "Element-wise CUDA (default)");
+    OPT("-t, --tiled", "Tiled CUDA kernel (only elewise allowed)");
+    OPT("-b, --bitpacked", "Bitpacked grid");
+    OPT("-a, --bitpacked-atomic", "Bitpacked grid (atomic)");
     OPT("-f, --fill <0-100>", "Random fill (default: 8)");
     OPT("-n, --gens <num>", "Generations (-1 infinite)");
     OPT("-i, --input-rle <file>", "Load RLE pattern");
+    OPT("-H, --headless", "Run without rendering");
     OPT("-V, --no-vsync", "Disable vsync");
     fprintf(stderr, "\n");
+
+    fprintf(stderr,
+        "SHORT OPTS:\n"
+        "  tbaHVhvs:rcef:n:i:\n\n");
 
     fprintf(stderr,
         "SIZE PRESETS:\n"
@@ -49,6 +57,9 @@ void emit_help(const char *prog) {
         "  Infinite          %s -n -1\n"
         "  Load RLE          %s -i glider.rle\n"
         "  Disable vsync     %s -V\n"
-        "  Row-wise CUDA     %s -r\n\n",
-        prog, prog, prog, prog, prog, prog, prog);
+        "  Row-wise CUDA     %s -r\n"
+        "  Tiled CUDA        %s -t\n"
+        "  Bitpacked         %s -b\n"
+        "  Headless          %s -H\n\n",
+        prog, prog, prog, prog, prog, prog, prog, prog, prog, prog);
 }

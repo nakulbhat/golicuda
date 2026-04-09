@@ -24,8 +24,8 @@ static struct option long_options[] = {
     {"input-rle", required_argument, 0, 'i'},
     {"help", no_argument, 0, 'h'},
     {"headless", no_argument, 0, 'H'},
-    {"bitpacked", no_argument, 0, 'B'},
-    {"bitpacked-atomic", no_argument, 0, 'b'},
+    {"bitpacked", no_argument, 0, 'b'},
+    {"bitpacked-atomic", no_argument, 0, 'a'},
     {"tiled", no_argument, 0, 't'},
     {"no-vsync", no_argument, 0, 'V'},
     {0, 0, 0, 0}
@@ -125,7 +125,7 @@ static void construct_fill_cell_arr(AppState *state, int optind, int argc,
 void parse_args(AppState *state, int argc, char **argv) {
     int opt;
     opterr = 0;
-    while ((opt = getopt_long(argc, argv, "tbBHVhvs:rcef:n:i:", long_options, NULL)) !=
+    while ((opt = getopt_long(argc, argv, "tbaHVhvs:rcef:n:i:", long_options, NULL)) !=
         -1) {
         switch (opt) {
             case 't':
@@ -135,14 +135,14 @@ void parse_args(AppState *state, int argc, char **argv) {
                     FATAL("Tiling cannot be specified with rowwise or colwise operations");
                 state->flags |= TILED_FLAG;
                 break;
-            case 'b':
+            case 'a':
                 if(state->flags & BITPACKED_FLAG)
                     FATAL("Cannot specify bitpacked-atomic with bitpacked");
                 if(state->flags & BITPACKED_ATOMIC_FLAG)
                     FATAL("Cannot specify bitpacked-atomic twice");
                 state->flags |= BITPACKED_ATOMIC_FLAG;
                 break;
-            case 'B':
+            case 'b':
                 if(state->flags & BITPACKED_ATOMIC_FLAG)
                     FATAL("Cannot specify bitpacked with bitpacked-atomic");
                 if(state->flags & BITPACKED_FLAG)

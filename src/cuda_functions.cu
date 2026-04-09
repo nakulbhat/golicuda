@@ -781,11 +781,13 @@ void run_headless(const AppState *state) {
         (state->flags & BITPACKED_ATOMIC_FLAG) ? "bitpacked-atomic (cell/thread)"
         : (state->flags & BITPACKED_FLAG) ? "bitpacked-wordwise (word/thread)"
         : "byte-per-cell";
-    const char *parallelism = (state->flags & ROWWISE_CUDA_FLAG)   ? "rowwise"
-        : (state->flags & COLWISE_CUDA_FLAG) ? "colwise"
-        : "elewise";
+    const char *parallelism = 
+        (state->flags & TILED_FLAG) ? "elewise (tiled)" :
+        (state->flags & ROWWISE_CUDA_FLAG) ? "rowwise" :
+        (state->flags & COLWISE_CUDA_FLAG) ? "colwise" :
+        "elewise (no tiling)";
 
-    fprintf(stderr, "\n=== Headless Perf Report ===\n");
+    fprintf(stderr, "=== Headless Perf Report ===\n");
     fprintf(stderr, "Grid        : %d x %d  (%ld cells)\n", width, height, cells);
     fprintf(stderr, "Mode        : %s / %s\n", mode, parallelism);
     fprintf(stderr, "Generations : %d\n", gens);
