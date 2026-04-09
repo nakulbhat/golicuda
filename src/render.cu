@@ -72,9 +72,14 @@ static void cursor_position_callback(GLFWwindow *window, double xpos,
 }
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    GLContext *ctx = (GLContext *)glfwGetWindowUserPointer(window);
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
-        GLContext *ctx = (GLContext *)glfwGetWindowUserPointer(window);
         ctx->paused = !ctx->paused;
+    }
+    if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+    ctx->zoom = 1.0f;
+    ctx->offsetX = 0.0f;
+    ctx->offsetY = 0.0f;
     }
 }
 
@@ -106,6 +111,7 @@ static void gl_init(GLContext *ctx, const AppState *state) {
     ctx->height = state->grid.y;
     ctx->generations = 0;
     ctx->paused = 1;
+    ctx->no_vsync = state->flags & NO_VSYNC_FLAG;
 
     ctx->zoom = 1.0f;
     ctx->offsetX = 0.0f;
@@ -128,6 +134,8 @@ static void gl_init(GLContext *ctx, const AppState *state) {
     }
 
     glfwMakeContextCurrent(ctx->window);
+
+    if (ctx->no_vsync) glfwSwapInterval(0);
 
     glfwSetWindowUserPointer(ctx->window, ctx);
 

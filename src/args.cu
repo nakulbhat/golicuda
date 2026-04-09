@@ -14,11 +14,18 @@
 #include "../include/state.h"
 
 static struct option long_options[] = {
-    {"verbose", no_argument, 0, 'v'},    {"size", required_argument, 0, 's'},
-    {"rowwise", no_argument, 0, 'r'},    {"colwise", no_argument, 0, 'c'},
-    {"element", no_argument, 0, 'e'},    {"fill", required_argument, 0, 'f'},
-    {"gens", required_argument, 0, 'n'}, {"rle", required_argument, 0, 'l'},
-    {"help", no_argument, 0, 'h'},       {0, 0, 0, 0}};
+    {"verbose", no_argument, 0, 'v'},
+    {"size", required_argument, 0, 's'},
+    {"rowwise", no_argument, 0, 'r'},
+    {"colwise", no_argument, 0, 'c'},
+    {"element", no_argument, 0, 'e'},
+    {"fill", required_argument, 0, 'f'},
+    {"gens", required_argument, 0, 'n'},
+    {"input-rle", required_argument, 0, 'i'},
+    {"help", no_argument, 0, 'h'},
+    {"no-vsync", no_argument, 0, 'V'},
+    {0, 0, 0, 0}
+};
 
 static void parse_cell(Cell *cell, const char *format) {
     char *xend, *yend;
@@ -43,10 +50,14 @@ static void set_grid_size(AppState *state, const char *preset_or_size) {
 
     if (strcmp("4k", preset_or_size) == 0)
         state->grid = (Cell){3840, 2160};
+    else if (strcmp("2k", preset_or_size) == 0)
+        state->grid = (Cell){2560, 1440};
     else if (strcmp("1080p", preset_or_size) == 0)
         state->grid = (Cell){1920, 1080};
     else if (strcmp("720p", preset_or_size) == 0)
         state->grid = (Cell){1280, 720};
+    else if (strcmp("480p", preset_or_size) == 0)
+        state->grid = (Cell){854, 480};
     else
         parse_cell(&state->grid, preset_or_size);
 }
@@ -110,9 +121,14 @@ static void construct_fill_cell_arr(AppState *state, int optind, int argc,
 void parse_args(AppState *state, int argc, char **argv) {
     int opt;
     opterr = 0;
-    while ((opt = getopt_long(argc, argv, "hvs:rcef:n:l:", long_options, NULL)) !=
+    while ((opt = getopt_long(argc, argv, "Vhvs:rcef:n:i:", long_options, NULL)) !=
         -1) {
         switch (opt) {
+            case 'V':
+                if (state->flags & NO_VSYNC_FLAG)
+                    FATAL("Cannot specify no-vsync twice");
+                state->flags |= NO_VSYNC_FLAG;
+                break;
             case 'h':
                 emit_help(argv[0]);
                 exit(EXIT_SUCCESS);
