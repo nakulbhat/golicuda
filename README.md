@@ -1,4 +1,4 @@
-# golicuda
+# `golicuda` --- Game Of Life In CUDA
 
 A GPU-accelerated Conway's Game of Life using CUDA and OpenGL, with real-time interactive rendering.
 
@@ -9,14 +9,15 @@ A GPU-accelerated Conway's Game of Life using CUDA and OpenGL, with real-time in
 
 ## Features
 
-- **Three CUDA parallelisation modes** — element-wise (default), row-wise, and column-wise
+- **Multiple CUDA parallelisation modes** — element-wise (default), row-wise, column-wise, tiled, bitpacked, and atomic bitpacked
 - **CUDA–OpenGL PBO interop** — rendered pixels written directly to GPU memory, no host round-trips
 - **Ping-pong double buffering** — correct parallel read/write semantics across generations
-- **GPU-side random init** via `curand`
+- **GPU-side random init** via `curand` (byte and bitpacked grids)
 - **RLE pattern loading** — compatible with standard Game of Life pattern files
-- **Interactive viewport** — zoom (cursor-anchored) and pan via mouse, pause/resume via spacebar
+- **Interactive viewport** — zoom (cursor-anchored), pan via mouse, pause/resume via spacebar
 - **Configurable grid sizes** with named presets up to 4K
 - **VSync toggle** for uncapped framerate benchmarking
+- **Verbose logging** with FPS counter for profiling kernel performance
 
 ---
 
@@ -32,8 +33,7 @@ A GPU-accelerated Conway's Game of Life using CUDA and OpenGL, with real-time in
 
 ## Building
 
-The Makefile compiles for `arch=sm_86` by default. Modify `nvcc` flags to 
-compile for other architectures.
+The Makefile compiles for `arch=sm_86` by default. Modify `nvcc` flags to target other architectures.
 
 ```bash
 make
@@ -57,9 +57,13 @@ golicuda [OPTIONS] [CELLS...]
 | `-r` | `--rowwise` | Row-wise CUDA kernel |
 | `-c` | `--colwise` | Column-wise CUDA kernel |
 | `-e` | `--element` | Element-wise CUDA kernel (default) |
+| `-t` | `--tiled` | Tiled CUDA kernels (shared memory) |
+| `-b` | `--bitpacked` | Bitpacked grid (32 cells per word) |
+| `-a` | `--bitpacked-atomic` | Atomic bitpacked grid (1 cell per thread) |
 | `-f <0-100>` | `--fill` | Random fill percentage (default: 8) |
 | `-n <num>` | `--gens` | Generations to simulate (`-1` for infinite) |
 | `-i <file>` | `--input-rle` | Load a `.rle` pattern file |
+| `-H` | `--headless` | Run without rendering |
 | `-V` | `--no-vsync` | Disable VSync |
 
 ### Size Presets
@@ -95,28 +99,29 @@ golicuda [OPTIONS] [CELLS...]
 # Load a Gosper glider gun pattern
 ./golicuda -i gosper.rle -s 200,200
 
-# Benchmark row-wise vs element-wise with vsync off
-./golicuda -r -s 4k -V -v
-./golicuda -e -s 4k -V -v
+# Benchmark tiled vs bitpacked kernels with vsync off
+./golicuda -t -s 4k -V -v
+./golicuda -b -s 4k -V -v
+
+# Atomic bitpacked mode for correctness testing
+./golicuda -a -s 500,500 -n 200
 
 # Place specific cells manually
 ./golicuda 10,10 10,11 10,12
-
-# Custom grid size, column-wise CUDA, verbose output
-./golicuda -s 500,500 -c -v
 ```
 
 ---
 
 ## CUDA Kernel Modes
 
-The simulation step can be parallelised at three granularities, selectable at runtime:
+The simulation step can be parallelised at multiple granularities, selectable at runtime:
 
-**Element-wise** (`-e`, default): one thread per cell, launched as a 2D grid of 16×16 blocks. Maximum parallelism; best throughput on large grids.
-
-**Row-wise** (`-r`): one thread per row, each iterating across all columns. Useful for comparing coarser parallelism against the element-wise baseline.
-
-**Column-wise** (`-c`): one thread per column, symmetric to row-wise.
+- **Element-wise** (`-e`, default): one thread per cell, launched as a 2D grid of 16×16 blocks. Maximum parallelism; best throughput on large grids.
+- **Row-wise** (`-r`): one thread per row, iterating across all columns.
+- **Column-wise** (`-c`): one thread per column, symmetric to row-wise.
+- **Tiled** (`-t`): shared memory tiles (16×16 + halo) reduce global memory traffic.
+- **Bitpacked** (`-b`): compress 32 cells into one word, reducing memory footprint.
+- **Atomic bitpacked** (`-a`): one thread per cell bit, using atomics for correctness.
 
 All modes use toroidal (wrap-around) boundaries.
 
