@@ -1,0 +1,58 @@
+#CXRLE Pos=0,-12
+#N Gosper glider gun
+#O Bill Gosper
+#C A true period 30 glider gun.
+#C The first known gun and the first known finite pattern with unbounded growth.
+#C www.conwaylife.com/wiki/index.php?title=Gosper_glider_gun
+x = 125, y = 227, rule = B3/S23
+124bo$123b2o$123bo$123bo$123bo$122b2o$122bo$121b2o$121b2o$120b3o$120b
+2o$119b3o$24bo93bob2o$22bobo92bob3o$12b2o6b2o12b2o80bo2b2o$11bo3bo4b2o
+12b2o70bo2bo6bobobo$2o8bo5bo3b2o83b2o2bo5bo2b3o$2o8bo3bob2o4bobo80bo2b
+2o5bo2b3o$10bo5bo7bo80bo2b2o4bo3b3o$11bo3bo88b2obobo2b2o3b2obo$12b2o
+90b2ob2o3b2o3b3o$104b2ob2o3bo4b3o$103bob2obo2b2o3bob2o$103b2obob2obo4b
+2obo$103b2obob4o3b4o$103b2ob2ob2o4b2ob2o$102bob2ob4o3b3ob2o$102bob2ob
+4o3b2o2b2o$102b2obob4o2b3ob2o$102b2obob3o3b3ob2o$101bob2ob4o2b3ob3o$
+101bob2ob4o2b3ob3o$101bob2ob4ob6obo$101bob6o2b7o$100bobob5o2b4ob2o$
+100bob7ob2ob3obo$100bob7ob4ob2o$99bo2b2ob3o2b4ob2o$99bo2b6o2bobobobo$
+99bo2b6ob2obob2o$98bo3b5o2b4ob2o$98bo3b5o2bobobobo$98bo2b6o2b3ob2o$98b
+o2b6ob4ob2o$98bob6o2b5obo$97bo2b6ob4ob2o$97bob2ob4ob4ob2o$97bob2ob11o$
+97b4ob3ob4ob2o$97b3o2b3ob6o$96b2obob5ob2ob2o$95b4o2b8ob2o$95b2obob4ob
+3ob2o$95b3o2b4ob3ob2o$83bo10b4obob2ob4ob2o$82b2o10b3o2b4ob3o2bo$82b2o
+10bobo2b4ob3ob2o$81bobo9b2obobob7ob2o$81b2o10b3o2bob6o2bo$80bobo9b4o2b
+8ob2o$80bobo9b4ob3ob5ob2o$79bobo9b4o2bob6ob2o$79bobo9b4ob2ob2ob3ob2o$
+78bo2bo8b4o2b9obo$77bo2bo9b4ob2ob6o2bo$77bo2bo8b5ob2ob6ob2o$76bo2bo9b
+4ob3ob6obo$76bo2bo8b4o3b2ob3ob2obo$75bo3bo8b2obo2bob10o$75bo2bo8b5o2b
+2ob9o$74bo3bo8b2obo3b2ob5ob3o$74bo3bo7b5o3bo2b2ob2ob2o$74bo2b2o7b2ob2o
+2b2o3bob3o$73bo3b2o6b6o2b2o2bob2obo$73bo2b3o6b2ob3o2b2o2bob3o$72bo3bob
+o5b6o3b2o2bobobo$72bo2b2obo5b3ob2ob3o2bob2obo$72bobob2o5b7ob3o2bob3o$
+71bo2b2obo5b3ob2ob4o2b4o$71bobobobo4b7ob2obobob3o$70bobo2bobo4b3ob3ob
+2obobobobo$70bobobo2bo3b6ob2obobob3o$69bobo2bo2bo2bob6obob2o2b3o$69bob
+o2bo2bo2b6obob2obob3o$68bobo2bo2bo2bob6ob3obob3o$68bobo2bo2bo2b6obobob
+obob2o$67bobo3bo2bobob6ob2obobob2o$67b2o3bo3b2ob4ob2ob3o2b3o$66bobo3bo
+3b2ob6ob2obo2b3o$66b2o4bo2b2ob4ob2ob2obobobo$65b2o5bo2b2ob2obob3obobob
+3o$65b2o4bo3bo2bob2obob2obo2b2o$64b2o5bo2b2o4bob2ob2obo2b2o$64b2o5bo2b
+o4b2obobobobo2bo$64bo6bob2o4bo2bob2obo2b2o$63b2o5bobobo3b2obo2b2obo2b
+2o$63bo6b3obo3bo2bo2b3o3bo$73bo3b2ob2obob2o$73bo3b2obo2b2obo8bo$73bo3b
+ob2o2b2obo8bo$73bo2b2ob2o2b2obo7b2o$72bo3bob2o2b2o2bo6bobo$72bo3bob2o
+2b2o2bo6b2o$72bo2b3obobobo2bo5bobo7bo$72bo2bob2o2bobo2bo5bobo7bo$72bob
+3obobobo3bo4bo2bo6bo$71bo2b2o2bobobo3bo4bobo7bo$71bobobobobo2bo3bo3bo
+2bo6bo$71bob2o2bobo2bo2bo3bo3bo6bo$71bo2bo2b2o2bo3bo3bo2bo6b2o$71bobo
+2bobo2bo3bo2bo3bo6bo$70bo2bo2b2o3bo3bo2bo3bo5b2o$70bo2bobobo2bo4bobo3b
+o6bo$70bobo2b2o3bo4b2o4bo6bo$70bobo2b2o3bo4b2o4bo5bo$69bo2bob2o4bo4bo
+4bo6bo$69bobo2b2o3bo5bo4bo5b2o$69bobo2b2o3bo4b2o4bo5bo$69b2o3bo4bo4b2o
+4bo5bo$68bobo2b2o4bo4b2o3bo5b2o$68b2o3b2o3bo4bobo3bo5bo$68b2o3bo4bo4bo
+bo3bo5bo$72b2o4bo4bobo2bo5b2o$72bo4bo4bo2bo2bo5bo$71b2o4bo4bo2bo2bo5bo
+$71bo5bo3bo3bo2bo4b2o$71bo5bo3bo3bobo5bo$76bo3bo4bobo4b2o$76bo3bo4bobo
+4bo$76bo2bo5bobo4bo$76bo2bo5b2o5bo$76bobo6b2o4bo$75bo2bo6b2o4bo$75bobo
+7bo4b2o$75bobo7bo4b2o$75b2o8bo4bo$85bo3b2o$84b2o3b2o$84b2o2bobo$84b2o
+2b2o$84b2o2b2o$84b2ob2o$84b2ob2o$84b2ob2o$83bob3o$83b2ob2o$83b3obo$83b
+3obo$83b2obo$82bobobo$82b3obo$82bobobo$84bobo$84b2o$84b2o$84b2o$84b2o$
+84bo$84bo$84bo3bo$84bo3bo$84bo2b2o$83b2obobo$83b3o2bo$83b3o2bo$83b2o3b
+o$83b2o3bo$82bobo3bo$82bobo3bo$82b3o3bo$82b3o3bo$84bo3bo$84bo3bo$84bo
+3bo$84bo2bo$84bo2bo$84bo2bo$84bo2bo$84bobo$84bobo$84bobo$84bobo$84bobo
+$84bobo$84b2o$84b2o7bo$84b2o6b2o$84b2o6b2o$84b2o5b2o$84b2o5b2o$84b2o4b
+obo$84bo5bobo$84bo5b2o$84bo4bobo$84bo4bobo$84bo3bobo$84bo3bobo$84bo2bo
+2bo$84bo2bo2bo$83b2o2bobo$83b2o2bobo$83b2obo2bo$83b2obo2bo$83b2obobo$
+83b2obobo$82bob2o2bo$82bob2o2bo$82bob2o2bo$82bobo2bo$82bobo2bo$82bobo
+2bo$81bob2o2bo$81bob2o2bo$81bob2o2bo$81b2obobo$81b2obobo$81bo2bobo$81b
+o2bobo$81bo2bobo$84bobo$84b2o$84b2o$84b2o$84b2o$84bo$84bo$84bo!
