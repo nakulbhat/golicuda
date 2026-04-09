@@ -166,7 +166,7 @@ void parse_args(AppState *state, int argc, char **argv) {
             case 'n':
                 set_generations(state, optarg);
                 break;
-            case 'l':
+            case 'i':
                 state->rle_file = strdup(optarg);
                 state->flags |= RLE_FILE_FLAG;
                 break;
@@ -195,6 +195,8 @@ void parse_args(AppState *state, int argc, char **argv) {
     }
 
     if (state->flags & RLE_FILE_FLAG) {
-        load_rle(state, state->rle_file);
+        RLEInfo info = load_rle(state, state->rle_file);
+        state->pattern_width  = info.pattern_width;
+        state->pattern_height = info.pattern_height;
     }
 }

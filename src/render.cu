@@ -114,6 +114,13 @@ static void gl_init(GLContext *ctx, const AppState *state) {
     ctx->no_vsync = state->flags & NO_VSYNC_FLAG;
 
     ctx->zoom = 1.0f;
+    if ((state->flags & RLE_FILE_FLAG) && state->pattern_width > 0) {
+        // Zoom so the pattern spans ~70% of the smaller screen dimension
+        float fit_w = (ctx->width  * 0.7f) / state->pattern_width;
+        float fit_h = (ctx->height * 0.7f) / state->pattern_height;
+        ctx->zoom = fit_w < fit_h ? fit_w : fit_h;
+        if (ctx->zoom < 1.0f) ctx->zoom = 1.0f;
+    }
     ctx->offsetX = 0.0f;
     ctx->offsetY = 0.0f;
     ctx->dragging = 0;

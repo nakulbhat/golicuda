@@ -10,7 +10,8 @@ typedef struct {
     Cell *fill_cell_arr;
     int fill_cell_count;
     char *rle_file;
-
+    int pattern_width;   
+    int pattern_height; 
 } AppState;
 
 void init_default_state(AppState *state);
