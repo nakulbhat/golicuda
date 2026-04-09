@@ -19,6 +19,7 @@ typedef enum {
     RLE_FILE_FLAG = 1 << 7,         // -l <rlefile>
     NO_VSYNC_FLAG = 1 << 8,         // -V
     HEADLESS_FLAG = 1 << 9,         // -H
+    BITPACKED_FLAG = 1 << 10,       // -B
 } flags_t;
 
 // mutually exclusive CUDA flags

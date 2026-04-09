@@ -224,22 +224,20 @@ static void gl_init(GLContext *ctx, const AppState *state) {
                                  cudaGraphicsMapFlagsWriteDiscard);
 
     
-    size_t grid_bytes = ctx->width * ctx->height * sizeof(uint8_t);
+    int    bp     = (state->flags & BITPACKED_FLAG) != 0;
+    size_t gbytes = grid_bytes(ctx->width, ctx->height, bp);
 
-    uint8_t *d_a;
-    uint8_t *d_b;
-
-    cudaMalloc(&d_a, grid_bytes);
-    cudaMalloc(&d_b, grid_bytes);
+    void *d_a, *d_b;
+    cudaMalloc(&d_a, gbytes);
+    cudaMalloc(&d_b, gbytes);
+    if (bp) cudaMemset(d_b, 0, gbytes);  
 
     cuda_init_random(d_a, ctx->width, ctx->height,
-                     ((float)state->random_fill_percentage) / 100.0f, 42ULL);
-
+                     ((float)state->random_fill_percentage) / 100.0f, 42ULL, bp);
     cudaDeviceSynchronize();
 
-    cuda_fill_cells(d_a, ctx->width, ctx->height, state->fill_cell_arr,
-                    state->fill_cell_count);
-
+    cuda_fill_cells(d_a, ctx->width, ctx->height,
+                    state->fill_cell_arr, state->fill_cell_count, bp);
     ctx->d_front = d_a;
     ctx->d_back = d_b;
 }
@@ -286,14 +284,16 @@ static void gl_update(GLContext *ctx, const AppState *state) {
     cudaGraphicsResourceGetMappedPointer((void **)&dptr, &num_bytes,
                                          ctx->cuda_pbo);
 
-    cuda_game_of_life(ctx->d_front, ctx->d_back, ctx->width, ctx->height, state);
+    int bp = (state->flags & BITPACKED_FLAG) != 0;
+    if (bp) cudaMemset(ctx->d_back, 0, grid_bytes(ctx->width, ctx->height, 1));
 
-    cuda_render(ctx->d_back, dptr, ctx->width, ctx->height);
+    cuda_game_of_life(ctx->d_front, ctx->d_back, ctx->width, ctx->height, state);
+    cuda_render(ctx->d_back, dptr, ctx->width, ctx->height, bp);
 
     cudaGraphicsUnmapResources(1, &ctx->cuda_pbo, 0);
 
     // ping-pong swap
-    uint8_t *tmp = ctx->d_front;
+    void *tmp = ctx->d_front;
     ctx->d_front = ctx->d_back;
     ctx->d_back = tmp;
 
@@ -310,7 +310,8 @@ void start_simulation(const AppState *state) {
     size_t num_bytes;
     cudaGraphicsMapResources(1, &ctx.cuda_pbo, 0);
     cudaGraphicsResourceGetMappedPointer((void **)&dptr, &num_bytes, ctx.cuda_pbo);
-    cuda_render(ctx.d_front, dptr, ctx.width, ctx.height);
+    int bp = (state->flags & BITPACKED_FLAG) != 0;
+    cuda_render(ctx.d_front, dptr, ctx.width, ctx.height, bp);
     cudaGraphicsUnmapResources(1, &ctx.cuda_pbo, 0);
 
     double last_time = glfwGetTime();

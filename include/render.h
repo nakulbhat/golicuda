@@ -22,8 +22,8 @@ typedef struct {
 
     cudaGraphicsResource *cuda_pbo;
 
-    uint8_t *d_front;
-    uint8_t *d_back;
+    void *d_front;   
+    void *d_back;   
 
     GLuint zoomLoc;
     GLuint offsetLoc;
