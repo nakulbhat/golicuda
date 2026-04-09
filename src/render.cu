@@ -156,8 +156,7 @@ static void gl_init(GLContext *ctx, const AppState *state) {
 
     glViewport(0, 0, ctx->width, ctx->height);
 
-    // ---------------- Shader ----------------
-
+    
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
     glCompileShader(vertexShader);
@@ -178,8 +177,7 @@ static void gl_init(GLContext *ctx, const AppState *state) {
     ctx->zoomLoc = glGetUniformLocation(ctx->shaderProgram, "zoom");
     ctx->offsetLoc = glGetUniformLocation(ctx->shaderProgram, "offset");
 
-    // ---------------- Quad ----------------
-
+    
     float quad[] = {-1.f, -1.f, 1.f, -1.f, 1.f, 1.f, -1.f, 1.f};
 
     unsigned int indices[] = {0, 1, 2, 2, 3, 0};
@@ -201,8 +199,7 @@ static void gl_init(GLContext *ctx, const AppState *state) {
 
     glEnableVertexAttribArray(0);
 
-    // ---------------- Texture ----------------
-
+    
     glGenTextures(1, &ctx->texture);
     glBindTexture(GL_TEXTURE_2D, ctx->texture);
 
@@ -213,8 +210,7 @@ static void gl_init(GLContext *ctx, const AppState *state) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, ctx->width, ctx->height, 0,
                  GL_RGBA, GL_FLOAT, NULL);
 
-    // ---------------- CUDA PBO ----------------
-
+    
     glGenBuffers(1, &ctx->pbo);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, ctx->pbo);
 
@@ -227,8 +223,7 @@ static void gl_init(GLContext *ctx, const AppState *state) {
     cudaGraphicsGLRegisterBuffer(&ctx->cuda_pbo, ctx->pbo,
                                  cudaGraphicsMapFlagsWriteDiscard);
 
-    // ---------------- CUDA Buffers ----------------
-
+    
     size_t grid_bytes = ctx->width * ctx->height * sizeof(uint8_t);
 
     uint8_t *d_a;
