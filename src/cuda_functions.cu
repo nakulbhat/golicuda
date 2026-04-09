@@ -1158,13 +1158,13 @@ void run_headless(const AppState *state) {
         (state->flags & COLWISE_CUDA_FLAG) ? "colwise" :
         "elewise (no tiling)";
 
-    fprintf(stderr, "\n=== Headless Perf Report ===\n");
-    fprintf(stderr, "Grid        : %d x %d  (%ld cells)\n", width, height, cells);
-    fprintf(stderr, "Mode        : %s / %s\n", mode, parallelism);
-    fprintf(stderr, "Generations : %d\n", gens);
-    fprintf(stderr, "Avg         : %.3f ms  (%.0f gen/s)\n", avg_ms, avg_fps);
-    fprintf(stderr, "Min         : %.3f ms\n", min_ms);
-    fprintf(stderr, "Max         : %.3f ms\n", max_ms);
-    fprintf(stderr, "Total       : %.1f ms\n", total_ms);
-    fprintf(stderr, "Cell-steps/s: %.3e\n", (double)cells * avg_fps);
+    fprintf(stdout, "\n=== Headless Perf Report ===\n");
+    fprintf(stdout, "Grid        : %d x %d  (%ld cells)\n", width, height, cells);
+    fprintf(stdout, "Mode        : %s / %s\n", mode, parallelism);
+    fprintf(stdout, "Generations : %d\n", gens);
+    fprintf(stdout, "Avg         : %.3f ms  (%.0f gen/s)\n", avg_ms, avg_fps);
+    fprintf(stdout, "Min         : %.3f ms\n", min_ms);
+    fprintf(stdout, "Max         : %.3f ms\n", max_ms);
+    fprintf(stdout, "Total       : %.1f ms\n", total_ms);
+    fprintf(stdout, "Cell-steps/s: %.3e\n", (double)cells * avg_fps);
 }
