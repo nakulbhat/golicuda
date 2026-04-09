@@ -1,6 +1,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <cstdlib>
 #include <cuda_gl_interop.h>
 #include <cuda_runtime.h>
 
@@ -103,6 +104,8 @@ static void gl_init(GLContext *ctx, const AppState *state) {
 
     ctx->width = state->grid.x;
     ctx->height = state->grid.y;
+    ctx->generations = 0;
+    ctx->paused = 1;
 
     ctx->zoom = 1.0f;
     ctx->offsetX = 0.0f;
@@ -283,6 +286,8 @@ static void gl_update(GLContext *ctx, const AppState *state) {
     uint8_t *tmp = ctx->d_front;
     ctx->d_front = ctx->d_back;
     ctx->d_back = tmp;
+
+    ctx->generations++;
 }
 
 void start_simulation(const AppState *state) {
@@ -290,8 +295,20 @@ void start_simulation(const AppState *state) {
 
     gl_init(&ctx, state);
 
+    // render initial state
+    float4 *dptr;
+    size_t num_bytes;
+    cudaGraphicsMapResources(1, &ctx.cuda_pbo, 0);
+    cudaGraphicsResourceGetMappedPointer((void **)&dptr, &num_bytes, ctx.cuda_pbo);
+    cuda_render(ctx.d_front, dptr, ctx.width, ctx.height);
+    cudaGraphicsUnmapResources(1, &ctx.cuda_pbo, 0);
+
     double last_time = glfwGetTime();
     while (!glfwWindowShouldClose(ctx.window)) {
+        if (state->generations != -1 && ctx.generations >= state->generations){
+            LOG(state, "%d generations simulated. Exiting.", state->generations);
+            exit(EXIT_SUCCESS);
+        }
         if (!ctx.paused)
             gl_update(&ctx, state);
         gl_render(&ctx);

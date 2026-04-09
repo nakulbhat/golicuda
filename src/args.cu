@@ -1,3 +1,4 @@
+#include <climits>
 #include <cstdlib>
 #include <getopt.h>
 #include <limits.h>
@@ -80,9 +81,13 @@ static void set_generations(AppState *state, const char *natural_num) {
     if (end == natural_num || *end != '\0')
         FATAL("Invalid generations value. Expected an integer (e.g. --gens 100)");
 
-    if (val <= 0 || val > INT_MAX)
-        FATAL("Generations should be a natural number (>0). Got %ld", val);
+    if (val == 0)
+        FATAL("Generations cannot be 0. Pass `-1` for infinite simulation.");
+    if (val < -1 || val >= INT_MAX)
+        FATAL("Generations should be a natural number (>0) or -1. Got %ld", val);
 
+    if (val == -1)
+        LOG(state, "Simulating infinite generations");
     state->generations = (int)val;
 }
 

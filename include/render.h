@@ -12,6 +12,7 @@ typedef struct {
 
     int width;
     int height;
+    int generations;
 
     GLuint shaderProgram;
     GLuint VAO, VBO, EBO;
