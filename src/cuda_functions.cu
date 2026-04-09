@@ -421,6 +421,164 @@ __global__ void game_of_life_tiled_kernel(const uint8_t *src, uint8_t *dst,
         cell ? (neighbours == 2 || neighbours == 3) : (neighbours == 3);
 }
 
+__global__ void game_of_life_tiled_rowwise_kernel(const uint8_t *src,
+                                                  uint8_t *dst, int width,
+                                                  int height) {
+    __shared__ uint8_t smem[TILE + 2][TILE + 2];
+
+    const int ty = threadIdx.x;
+    const int gy = blockIdx.x * TILE + ty;
+
+    for (int tile_x = 0; tile_x < (width + TILE - 1) / TILE; tile_x++) {
+        const int gx_base = tile_x * TILE;
+
+        for (int tx = 0; tx < TILE; tx++) {
+            const int gx = gx_base + tx;
+            const int sx = tx + 1;
+            const int sy = ty + 1;
+
+            if (gx < width && gy < height)
+                smem[sy][sx] = src[gy * width + gx];
+            else
+                smem[sy][sx] = 0;
+
+            if (tx == 0) {
+                int nx = (gx - 1 + width) % width;
+                smem[sy][0] = (gy < height) ? src[gy * width + nx] : 0;
+            }
+            if (tx == TILE - 1) {
+                int nx = (gx + 1) % width;
+                smem[sy][TILE + 1] = (gy < height) ? src[gy * width + nx] : 0;
+            }
+            if (ty == 0) {
+                int ny = (gy - 1 + height) % height;
+                smem[0][sx] = (gx < width) ? src[ny * width + gx] : 0;
+            }
+            if (ty == TILE - 1) {
+                int ny = (gy + 1) % height;
+                smem[TILE + 1][sx] = (gx < width) ? src[ny * width + gx] : 0;
+            }
+        }
+
+        {
+            int nx0 = (gx_base - 1 + width) % width;
+            int nx1 = (gx_base + TILE) % width;
+            if (ty == 0) {
+                int ny = (gy - 1 + height) % height;
+                smem[0][0] = src[ny * width + nx0];
+                smem[0][TILE + 1] = src[ny * width + nx1];
+            }
+            if (ty == TILE - 1) {
+                int ny = (gy + 1) % height;
+                smem[TILE + 1][0] = src[ny * width + nx0];
+                smem[TILE + 1][TILE + 1] = src[ny * width + nx1];
+            }
+        }
+
+        __syncthreads();
+
+        if (gy < height) {
+            for (int tx = 0; tx < TILE; tx++) {
+                int gx = gx_base + tx;
+                if (gx >= width)
+                    break;
+                const int sx = tx + 1;
+                const int sy = ty + 1;
+
+                int neighbours = smem[sy - 1][sx - 1] + smem[sy - 1][sx] +
+                    smem[sy - 1][sx + 1] + smem[sy][sx - 1] + smem[sy][sx + 1] +
+                    smem[sy + 1][sx - 1] + smem[sy + 1][sx] +
+                    smem[sy + 1][sx + 1];
+
+                uint8_t cell = smem[sy][sx];
+                dst[gy * width + gx] =
+                    cell ? (neighbours == 2 || neighbours == 3) : (neighbours == 3);
+            }
+        }
+
+        __syncthreads();
+    }
+}
+
+__global__ void game_of_life_tiled_colwise_kernel(const uint8_t *src,
+                                                  uint8_t *dst, int width,
+                                                  int height) {
+    __shared__ uint8_t smem[TILE + 2][TILE + 2];
+
+    const int tx = threadIdx.x;
+    const int gx = blockIdx.x * TILE + tx;
+
+    for (int tile_y = 0; tile_y < (height + TILE - 1) / TILE; tile_y++) {
+        const int gy_base = tile_y * TILE;
+
+        for (int ty = 0; ty < TILE; ty++) {
+            const int gy = gy_base + ty;
+            const int sx = tx + 1;
+            const int sy = ty + 1;
+
+            if (gx < width && gy < height)
+                smem[sy][sx] = src[gy * width + gx];
+            else
+                smem[sy][sx] = 0;
+
+            if (tx == 0) {
+                int nx = (gx - 1 + width) % width;
+                smem[sy][0] = (gy < height) ? src[gy * width + nx] : 0;
+            }
+            if (tx == TILE - 1) {
+                int nx = (gx + 1) % width;
+                smem[sy][TILE + 1] = (gy < height) ? src[gy * width + nx] : 0;
+            }
+            if (ty == 0) {
+                int ny = (gy - 1 + height) % height;
+                smem[0][sx] = (gx < width) ? src[ny * width + gx] : 0;
+            }
+            if (ty == TILE - 1) {
+                int ny = (gy + 1) % height;
+                smem[TILE + 1][sx] = (gx < width) ? src[ny * width + gx] : 0;
+            }
+        }
+
+        {
+            int ny0 = (gy_base - 1 + height) % height;
+            int ny1 = (gy_base + TILE) % height;
+            if (tx == 0) {
+                int nx = (gx - 1 + width) % width;
+                smem[0][0] = src[ny0 * width + nx];
+                smem[TILE + 1][0] = src[ny1 * width + nx];
+            }
+            if (tx == TILE - 1) {
+                int nx = (gx + 1) % width;
+                smem[0][TILE + 1] = src[ny0 * width + nx];
+                smem[TILE + 1][TILE + 1] = src[ny1 * width + nx];
+            }
+        }
+
+        __syncthreads();
+
+        if (gx < width) {
+            for (int ty = 0; ty < TILE; ty++) {
+                int gy = gy_base + ty;
+                if (gy >= height)
+                    break;
+                const int sx = tx + 1;
+                const int sy = ty + 1;
+
+                int neighbours = smem[sy - 1][sx - 1] + smem[sy - 1][sx] +
+                    smem[sy - 1][sx + 1] + smem[sy][sx - 1] + smem[sy][sx + 1] +
+                    smem[sy + 1][sx - 1] + smem[sy + 1][sx] +
+                    smem[sy + 1][sx + 1];
+
+                uint8_t cell = smem[sy][sx];
+                dst[gy * width + gx] =
+                    cell ? (neighbours == 2 || neighbours == 3) : (neighbours == 3);
+            }
+        }
+
+        __syncthreads();
+    }
+}
+
 __global__ void game_of_life_tiled_bitpacked_kernel(const uint32_t *src,
                                                     uint32_t *dst, int width,
                                                     int height) {
@@ -500,22 +658,232 @@ __global__ void game_of_life_tiled_bitpacked_kernel(const uint32_t *src,
         atomicAnd(&dst[idx >> 5], ~bit);
 }
 
+__global__ void game_of_life_tiled_bitpacked_rowwise_kernel(const uint32_t *src,
+                                                            uint32_t *dst,
+                                                            int width,
+                                                            int height) {
+    __shared__ uint8_t smem[TILE + 2][TILE + 2];
+
+    const int ty = threadIdx.x;
+    const int gy = blockIdx.x * TILE + ty;
+
+#define BP_READ_S(X, Y)                                                        \
+    ({                                                                           \
+        int _i = (Y) * width + (X);                                                \
+        (int)((src[_i >> 5] >> (_i & 31)) & 1u);                                   \
+    })
+
+    for (int tile_x = 0; tile_x < (width + TILE - 1) / TILE; tile_x++) {
+        const int gx_base = tile_x * TILE;
+
+        for (int tx = 0; tx < TILE; tx++) {
+            const int gx = gx_base + tx;
+            const int sx = tx + 1;
+            const int sy = ty + 1;
+
+            if (gx < width && gy < height)
+                smem[sy][sx] = (uint8_t)BP_READ_S(gx, gy);
+            else
+                smem[sy][sx] = 0;
+
+            if (tx == 0) {
+                int nx = (gx - 1 + width) % width;
+                smem[sy][0] = (gy < height) ? (uint8_t)BP_READ_S(nx, gy) : 0;
+            }
+            if (tx == TILE - 1) {
+                int nx = (gx + 1) % width;
+                smem[sy][TILE + 1] = (gy < height) ? (uint8_t)BP_READ_S(nx, gy) : 0;
+            }
+            if (ty == 0) {
+                int ny = (gy - 1 + height) % height;
+                smem[0][sx] = (gx < width) ? (uint8_t)BP_READ_S(gx, ny) : 0;
+            }
+            if (ty == TILE - 1) {
+                int ny = (gy + 1) % height;
+                smem[TILE + 1][sx] = (gx < width) ? (uint8_t)BP_READ_S(gx, ny) : 0;
+            }
+        }
+
+        {
+            int nx0 = (gx_base - 1 + width) % width;
+            int nx1 = (gx_base + TILE) % width;
+            if (ty == 0) {
+                int ny = (gy - 1 + height) % height;
+                smem[0][0] = (uint8_t)BP_READ_S(nx0, ny);
+                smem[0][TILE + 1] = (uint8_t)BP_READ_S(nx1, ny);
+            }
+            if (ty == TILE - 1) {
+                int ny = (gy + 1) % height;
+                smem[TILE + 1][0] = (uint8_t)BP_READ_S(nx0, ny);
+                smem[TILE + 1][TILE + 1] = (uint8_t)BP_READ_S(nx1, ny);
+            }
+        }
+
+        __syncthreads();
+
+        if (gy < height) {
+            for (int tx = 0; tx < TILE; tx++) {
+                int gx = gx_base + tx;
+                if (gx >= width)
+                    break;
+                const int sx = tx + 1;
+                const int sy = ty + 1;
+
+                int neighbours = smem[sy - 1][sx - 1] + smem[sy - 1][sx] +
+                    smem[sy - 1][sx + 1] + smem[sy][sx - 1] + smem[sy][sx + 1] +
+                    smem[sy + 1][sx - 1] + smem[sy + 1][sx] +
+                    smem[sy + 1][sx + 1];
+
+                int cell = smem[sy][sx];
+                int alive = cell ? (neighbours == 2 || neighbours == 3) : (neighbours == 3);
+
+                int idx = gy * width + gx;
+                uint32_t bit = 1u << (idx & 31);
+                if (alive)
+                    atomicOr(&dst[idx >> 5], bit);
+                else
+                    atomicAnd(&dst[idx >> 5], ~bit);
+            }
+        }
+
+        __syncthreads();
+    }
+
+#undef BP_READ_S
+}
+
+__global__ void game_of_life_tiled_bitpacked_colwise_kernel(const uint32_t *src,
+                                                            uint32_t *dst,
+                                                            int width,
+                                                            int height) {
+    __shared__ uint8_t smem[TILE + 2][TILE + 2];
+
+    const int tx = threadIdx.x;
+    const int gx = blockIdx.x * TILE + tx;
+
+#define BP_READ_S(X, Y)                                                        \
+    ({                                                                           \
+        int _i = (Y) * width + (X);                                                \
+        (int)((src[_i >> 5] >> (_i & 31)) & 1u);                                   \
+    })
+
+    for (int tile_y = 0; tile_y < (height + TILE - 1) / TILE; tile_y++) {
+        const int gy_base = tile_y * TILE;
+
+        for (int ty = 0; ty < TILE; ty++) {
+            const int gy = gy_base + ty;
+            const int sx = tx + 1;
+            const int sy = ty + 1;
+
+            if (gx < width && gy < height)
+                smem[sy][sx] = (uint8_t)BP_READ_S(gx, gy);
+            else
+                smem[sy][sx] = 0;
+
+            if (tx == 0) {
+                int nx = (gx - 1 + width) % width;
+                smem[sy][0] = (gy < height) ? (uint8_t)BP_READ_S(nx, gy) : 0;
+            }
+            if (tx == TILE - 1) {
+                int nx = (gx + 1) % width;
+                smem[sy][TILE + 1] = (gy < height) ? (uint8_t)BP_READ_S(nx, gy) : 0;
+            }
+            if (ty == 0) {
+                int ny = (gy - 1 + height) % height;
+                smem[0][sx] = (gx < width) ? (uint8_t)BP_READ_S(gx, ny) : 0;
+            }
+            if (ty == TILE - 1) {
+                int ny = (gy + 1) % height;
+                smem[TILE + 1][sx] = (gx < width) ? (uint8_t)BP_READ_S(gx, ny) : 0;
+            }
+        }
+
+        {
+            int ny0 = (gy_base - 1 + height) % height;
+            int ny1 = (gy_base + TILE) % height;
+            if (tx == 0) {
+                int nx = (gx - 1 + width) % width;
+                smem[0][0] = (uint8_t)BP_READ_S(nx, ny0);
+                smem[TILE + 1][0] = (uint8_t)BP_READ_S(nx, ny1);
+            }
+            if (tx == TILE - 1) {
+                int nx = (gx + 1) % width;
+                smem[0][TILE + 1] = (uint8_t)BP_READ_S(nx, ny0);
+                smem[TILE + 1][TILE + 1] = (uint8_t)BP_READ_S(nx, ny1);
+            }
+        }
+
+        __syncthreads();
+
+        if (gx < width) {
+            for (int ty = 0; ty < TILE; ty++) {
+                int gy = gy_base + ty;
+                if (gy >= height)
+                    break;
+                const int sx = tx + 1;
+                const int sy = ty + 1;
+
+                int neighbours = smem[sy - 1][sx - 1] + smem[sy - 1][sx] +
+                    smem[sy - 1][sx + 1] + smem[sy][sx - 1] + smem[sy][sx + 1] +
+                    smem[sy + 1][sx - 1] + smem[sy + 1][sx] +
+                    smem[sy + 1][sx + 1];
+
+                int cell = smem[sy][sx];
+                int alive = cell ? (neighbours == 2 || neighbours == 3) : (neighbours == 3);
+
+                int idx = gy * width + gx;
+                uint32_t bit = 1u << (idx & 31);
+                if (alive)
+                    atomicOr(&dst[idx >> 5], bit);
+                else
+                    atomicAnd(&dst[idx >> 5], ~bit);
+            }
+        }
+
+        __syncthreads();
+    }
+
+#undef BP_READ_S
+}
+
 void cuda_game_of_life(const void *src, void *dst, int width, int height,
                        const AppState *state) {
 
     int words_per_row = (width + 31) / 32;
 
     if (state->flags & TILED_FLAG) {
-        dim3 block(TILE, TILE);
-        dim3 grid_dim((width + TILE - 1) / TILE, (height + TILE - 1) / TILE);
-
         int bp = (state->flags & (BITPACKED_FLAG | BITPACKED_ATOMIC_FLAG)) != 0;
-        if (bp) {
-            game_of_life_tiled_bitpacked_kernel<<<grid_dim, block>>>(
-                (const uint32_t *)src, (uint32_t *)dst, width, height);
+
+        if (state->flags & ROWWISE_CUDA_FLAG) {
+            int threads = TILE;
+            int blocks = (height + TILE - 1) / TILE;
+            if (bp) {
+                game_of_life_tiled_bitpacked_rowwise_kernel<<<blocks, threads>>>(
+                    (const uint32_t *)src, (uint32_t *)dst, width, height);
+            } else {
+                game_of_life_tiled_rowwise_kernel<<<blocks, threads>>>(
+                    (const uint8_t *)src, (uint8_t *)dst, width, height);
+            }
+        } else if (state->flags & COLWISE_CUDA_FLAG) {
+            int threads = TILE;
+            int blocks = (width + TILE - 1) / TILE;
+            if (bp) {
+                game_of_life_tiled_bitpacked_colwise_kernel<<<blocks, threads>>>(
+                    (const uint32_t *)src, (uint32_t *)dst, width, height);
+            } else {
+                game_of_life_tiled_colwise_kernel<<<blocks, threads>>>(
+                    (const uint8_t *)src, (uint8_t *)dst, width, height);
+            }
         } else {
-            game_of_life_tiled_kernel<<<grid_dim, block>>>(
-                (const uint8_t *)src, (uint8_t *)dst, width, height);
+            dim3 block(TILE, TILE);
+            dim3 grid_dim((width + TILE - 1) / TILE, (height + TILE - 1) / TILE);
+            if (bp) {
+                game_of_life_tiled_bitpacked_kernel<<<grid_dim, block>>>(
+                    (const uint32_t *)src, (uint32_t *)dst, width, height);
+            } else {
+                game_of_life_tiled_kernel<<<grid_dim, block>>>(
+                    (const uint8_t *)src, (uint8_t *)dst, width, height);
+            }
         }
         CUDA_CHECK(cudaGetLastError());
         return;
@@ -781,13 +1149,16 @@ void run_headless(const AppState *state) {
         (state->flags & BITPACKED_ATOMIC_FLAG) ? "bitpacked-atomic (cell/thread)"
         : (state->flags & BITPACKED_FLAG) ? "bitpacked-wordwise (word/thread)"
         : "byte-per-cell";
-    const char *parallelism = 
-        (state->flags & TILED_FLAG) ? "elewise (tiled)" :
+    const char *parallelism =
+        (state->flags & TILED_FLAG) ?
+            ((state->flags & ROWWISE_CUDA_FLAG) ? "rowwise (tiled)" :
+             (state->flags & COLWISE_CUDA_FLAG) ? "colwise (tiled)" :
+             "elewise (tiled)") :
         (state->flags & ROWWISE_CUDA_FLAG) ? "rowwise" :
         (state->flags & COLWISE_CUDA_FLAG) ? "colwise" :
         "elewise (no tiling)";
 
-    fprintf(stderr, "=== Headless Perf Report ===\n");
+    fprintf(stderr, "\n=== Headless Perf Report ===\n");
     fprintf(stderr, "Grid        : %d x %d  (%ld cells)\n", width, height, cells);
     fprintf(stderr, "Mode        : %s / %s\n", mode, parallelism);
     fprintf(stderr, "Generations : %d\n", gens);

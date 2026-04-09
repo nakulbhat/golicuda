@@ -131,8 +131,6 @@ void parse_args(AppState *state, int argc, char **argv) {
             case 't':
                 if(state->flags & TILED_FLAG)
                     FATAL("Cannot specify tiled twice");
-                if(state->flags & (ROWWISE_CUDA_FLAG | COLWISE_CUDA_FLAG))
-                    FATAL("Tiling cannot be specified with rowwise or colwise operations");
                 state->flags |= TILED_FLAG;
                 break;
             case 'a':
@@ -174,16 +172,12 @@ void parse_args(AppState *state, int argc, char **argv) {
             case 'r':
                 if (state->flags & CUDA_FLAGS)
                     FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
-                if (state->flags & TILED_FLAG)
-                    FATAL("Cannot specify rowwise flag with tiling flag");
                 state->flags |= ROWWISE_CUDA_FLAG;
                 break;
 
             case 'c':
                 if (state->flags & CUDA_FLAGS)
                     FATAL("Conflicting flags: cannot combine or repeat -r, -c, -e.");
-                if (state->flags & TILED_FLAG)
-                    FATAL("Cannot specify colwise flag with tiling flag");
                 state->flags |= COLWISE_CUDA_FLAG;
                 break;
 

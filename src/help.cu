@@ -16,9 +16,9 @@ void emit_help(const char *prog) {
     OPT("-r, --rowwise", "Row-wise CUDA");
     OPT("-c, --colwise", "Column-wise CUDA");
     OPT("-e, --element", "Element-wise CUDA (default)");
-    OPT("-t, --tiled", "Tiled CUDA kernel (only elewise allowed)");
-    OPT("-b, --bitpacked", "Bitpacked grid");
-    OPT("-a, --bitpacked-atomic", "Bitpacked grid (atomic)");
+    OPT("-t, --tiled", "Tiled CUDA kernels");
+    OPT("-b, --bitpacked", "Bitpacked grid with 32 bit word/thread");
+    OPT("-a, --bitpacked-atomic", "Atomic bitpacked grid with 1 bit cell/thread");
     OPT("-f, --fill <0-100>", "Random fill (default: 8)");
     OPT("-n, --gens <num>", "Generations (-1 infinite)");
     OPT("-i, --input-rle <file>", "Load RLE pattern");
