@@ -3,10 +3,9 @@
 # =======================
 # User-editable settings
 # =======================
-GENERATIONS=(10 100 1000 10000)
-TIMEOUT=30             # seconds
-RESOLUTION="1080p"     # can also set -s WIDTHxHEIGHT
-CSV_FILE="results/gens_power_1_4.csv"
+GENERATIONS=(5 10 25 50 100 250 500 1000 2500 5000 10000 25000 50000 100000 250000 500000 1000000)
+RESOLUTION="480p"     # can also set -s WIDTHxHEIGHT
+CSV_FILE="results/gens_power.csv"
 
 # =======================
 # All valid flag combinations
@@ -44,7 +43,7 @@ for GEN in "${GENERATIONS[@]}"; do
     ROW=("$GEN")
     for FLAG in "${FLAGS[@]}"; do
         # Run golicuda with timeout
-        OUTPUT=$(timeout $TIMEOUT golicuda -H -s $RESOLUTION -n $GEN $FLAG 2>perf_log.log)
+        OUTPUT=$(golicuda -H -s $RESOLUTION -n $GEN $FLAG 2>perf_log.log)
         if [ $? -eq 124 ]; then
             # Timeout occurred
             echo "  $FLAG: timeout"

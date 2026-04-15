@@ -4,18 +4,28 @@
 # User-editable settings
 # =======================
 GENERATIONS=1000            # fixed number of generations
-TIMEOUT=30                  # seconds
-CSV_FILE="results/res_scaling_480p_4k.csv"
+CSV_FILE="results/res_scaling.csv"
 
 # =======================
 # Resolutions to test (presets)
 # =======================
 RESOLUTIONS=(
-    "480p"   # 854x480
-    "720p"   # 1280x720
-    "1080p"  # 1920x1080
-    "2k"     # 2560x1440
-    "4k"     # 3840x2160
+    "5,5"
+    "10,10"
+    "25,25"
+    "50,50"
+    "100,100"
+    "250,250"
+    "500,500"
+    "750,750"
+    "1000,1000"
+    "1500,1500"
+    "2000,2000"
+    "3000,3000"
+    "4000,4000"
+    "5000,5000"
+    "7500,7500"
+    "10000,10000"
 )
 
 # =======================
@@ -55,7 +65,7 @@ for RES in "${RESOLUTIONS[@]}"; do
     ROW=("$RES")
     for FLAG in "${FLAGS[@]}"; do
         # Run golicuda with timeout
-        OUTPUT=$(timeout $TIMEOUT golicuda -H -s $RES -n $GENERATIONS $FLAG 2>perf_log.log)
+        OUTPUT=$(golicuda -H -s $RES -n $GENERATIONS $FLAG 2>perf_log.log)
         if [ $? -eq 124 ]; then
             # Timeout occurred
             echo "  $FLAG: timeout"
